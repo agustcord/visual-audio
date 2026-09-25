@@ -169,3 +169,109 @@ Para PoC-4, PoC-5 y PoC-6 hace falta **Drift abierto**, con:
 **No hace falta activar el servidor MCP de Drift.** La importación es manual, arrastrando el archivo. MCP sólo sería necesario para automatizar la colocación, que es opcional del MVP.
 
 **PoC-5 es el punto de control duro del plan.** Si Drift no compone la transparencia como esperamos, el camino A queda invalidado y hay que replantear antes de seguir.
+
+---
+
+# Adenda T3 — PoC-5 falló, y lo que se encontró al investigarlo
+
+**Fecha:** 2026-09-25 · **Turno:** T3
+
+## PoC-5: ❌ FALLA
+
+El fundador probó el overlay en Drift y **tuvo que aplicarle el modo de fusión "Trama" (Screen) para no ver un fondo negro**. Es decir: **Drift no honró el canal alpha.**
+
+Trama funciona por casualidad (negro en modo Screen no aporta nada al resultado) pero aclara los colores y dejaría de funcionar sobre un fondo claro. **No cuenta como PoC-5 cumplido.**
+
+Dato positivo del mismo reporte: **el reproductor no se puso lento.** El riesgo de rendimiento por la falta de proxy en clips transparentes (`PreviewProxyRenderer.cpp:40-45`) **no se materializó**.
+
+| # | Criterio | Estado tras T3 |
+|---|---|---|
+| PoC-4 | Drift lo importa | ✅ lo importó y lo reprodujo |
+| PoC-5 | Drift compone la transparencia | ❌ **falla** — requirió modo Trama |
+| PoC-6 | La onda se mueve con la música | ⚠️ se movía, pero **100 ms atrasada** (ver abajo) |
+| — | Preview no se degrada | ✅ no se puso lento |
+
+## Tres hipótesis descartadas con evidencia
+
+| Hipótesis | Verificación | Resultado |
+|---|---|---|
+| El archivo no declara alpha donde Drift lo busca | `MediaProbe.cpp:37-50` lee el tag `alpha_mode` además del formato de píxel; nuestro archivo tiene `alpha_mode=1` | ❌ Drift sí debería detectarlo |
+| El FFmpeg de Drift no trae el decodificador libvpx (y el nativo de VP9 ignora el alpha) | Cadenas presentes en `avcodec-61.dll` de Drift: `WebM Project VP9 Decoder`, `libvpx VP9`, `libvpx-vp9` | ❌ el decodificador está |
+| Faltaba `-auto-alt-ref 0`, que el exportador de Drift desactiva para VP9 con alpha (`Exporter.cpp:895-898`) | Auditoría cuadro por cuadro de los 477 cuadros del archivo probado: **cero opacos** | ❌ el alpha del archivo estaba sano |
+
+La tercera se aplicó igual al generador: el propio Drift la documenta como obligatoria y no cuesta nada.
+
+## Las dos hipótesis vivas
+
+No se pueden separar leyendo código. El experimento está en `PRUEBA_T3_ALPHA.md`.
+
+1. **Relleno por diferencia de tamaño.** El clip medía 1920×320 en un proyecto 1080p, y Drift lo rellenó con negro opaco. Predice que el negro se vio como una **franja**, no como el cuadro entero.
+2. **Drift descarta el alpha en su cadena de render** con WebM/VP9, pese a tener las piezas. Predice negro en **todo** el cuadro, y que ProRes 4444 en MOV funcione.
+
+Se generaron tres archivos para discriminarlas: la banda en WebM, el lienzo completo en WebM, y el lienzo completo en ProRes 4444.
+
+---
+
+## Tres defectos reales encontrados al investigar
+
+Dos afectaban al archivo que el fundador ya había probado.
+
+### 1. 🔴 Desincronización de 100 ms
+
+`showwaves` entrega los cuadros con intervalos exactos de 1/fps pero **etiqueta el primero en PTS 0.100 s en vez de 0**. Corrimiento constante de 3 cuadros: **la onda reaccionaba 100 ms después de la música.**
+
+Corregido con `setpts=PTS-STARTPTS`. Medido contra tres puntos de referencia independientes de la pista de prueba:
+
+| Punto conocido | Antes | Después |
+|---|---|---|
+| Primer bombo (0.0 s) | 0.133 s | 0.033 s |
+| Entra el bajo (1.0 s) | 1.133 s | 1.033 s |
+| Ataque del tramo intenso (10.0 s) | 10.133 s | 10.033 s |
+
+El desvío residual de 33 ms es **un cuadro exacto** de cuantización: un ataque en *t* cae en el cuadro que contiene *t*. Correcto por construcción.
+
+Prueba de regresión: `python tests\verificar_sincronia.py`.
+
+### 2. Faltaban 3 cuadros — y la verificación lo aprobaba
+
+El mismo corrimiento hacía que `-t` recortara la cola: **477 cuadros donde van 480**.
+
+**Lo grave no es el bug, es que PoC-3 lo aprobaba con "desvío 0.0 ms".** La comprobación leía `format=duration`, y el WebM declaraba 16.000 s teniendo 477 cuadros. Se detectó porque el mismo contenido en MOV declaró los 15.900 s reales y reprobó: **dos formatos discrepando sobre el mismo contenido.**
+
+Corregido: PoC-3 ahora **cuenta los cuadros decodificados** (dato que la auditoría de alpha ya produce de paso), compara contra los esperados, y si el contenedor discrepa lo dice explícitamente.
+
+### 3. La verificación reprobaba archivos correctos
+
+PoC-2b contaba como falla los cuadros sin nada dibujado. Pero en un pasaje silencioso **corresponde** que no se dibuje nada: confundía silencio con rotura. Corregido: los cuadros vacíos se informan como nota, y sólo reprueban los **opacos**, que es el único modo de falla real.
+
+---
+
+## Por qué T2 no detectó nada de esto
+
+La verificación de T2 medía **dos cuadros sueltos** y la **duración declarada**. Con ese instrumento, un archivo 100 ms desfasado y con 3 cuadros faltantes pasaba entero en verde.
+
+La de ahora recorre **todos los cuadros** y mide contra puntos de referencia conocidos del audio. La lección, anotada para los turnos que vengan: **una verificación que sólo mira muestras puntuales y metadatos declarados no verifica gran cosa.** Los bugs que importan viven entre las muestras.
+
+---
+
+## Números de los tres archivos generados
+
+Los tres pasan PoC-1, PoC-2 y PoC-3 con la verificación nueva.
+
+| Archivo | Formato | Tamaño (16 s) | Cuadros | Alpha |
+|---|---|---|---|---|
+| `A_banda_webm.webm` | VP9/WebM, 1920×320 | 11.720.395 B | 480/480 | 0 opacos |
+| `B_lienzo_webm.webm` | VP9/WebM, 1920×1080 | 11.706.664 B | 480/480 | 0 opacos |
+| `C_lienzo_prores.mov` | ProRes 4444/MOV, 1920×1080 | **121.511.238 B** | 480/480 | 0 opacos |
+
+ProRes pesa **10 veces más** porque no tiene pérdida. Si resulta el único que Drift compone bien, el peso pasa a ser un problema de diseño a resolver, no un costo a aceptar.
+
+## Novedad útil: `--lienzo`
+
+Salió del experimento y queda como función: genera el cuadro completo del tamaño del proyecto con la banda de onda situada dentro y el resto **transparente de verdad** (verificado: la zona rellenada mide alpha 0 exacto, mínimo y máximo).
+
+```powershell
+python tools\generar_overlay.py cancion.mp3 --lienzo 1920x1080 --posicion abajo --margen 60
+```
+
+Resuelve la personalización de **posición** sin tocar nada en Drift, y elimina toda pregunta sobre qué hace Drift con un clip más chico que el lienzo.

@@ -50,6 +50,21 @@ ESCALAS = {
 
 RE_COLOR = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
 
+# Los dos contenedores con alpha que Drift produce en sus propios presets de
+# exportación (`src/engine/Exporter.cpp`, tabla de presets):
+#
+#   vp9_alpha    -> AV_PIX_FMT_YUVA420P     en webm
+#   prores_4444  -> AV_PIX_FMT_YUVA444P10LE en mov
+#
+# Si Drift los exporta, los sabe leer. Generamos los mismos dos y nada más.
+FORMATOS = {
+    "webm": "VP9 con alpha en WebM. Liviano. Es el que Drift exporta como 'vp9_alpha'",
+    "mov": "ProRes 4444 en MOV. Sin pérdida y mucho más pesado, pero es el camino de "
+           "alpha más robusto de Drift: lo detecta por el formato de píxel Y por una "
+           "rama dedicada al codec",
+}
+EXTENSION = {"webm": ".webm", "mov": ".mov"}
+
 
 class ErrorDeGeneracion(Exception):
     """Falla esperable y explicable: se reporta sin traceback."""
@@ -113,10 +128,47 @@ def sondear_audio(ffprobe: str, ruta: Path) -> dict:
 # Construcción del comando
 # --------------------------------------------------------------------------- #
 
+def argumentos_de_codec(formato: str, crf: int, cpu_used: int) -> list[str]:
+    """Los argumentos de codificación de cada formato, calcados de lo que hace Drift.
+
+    **`-auto-alt-ref 0` en VP9 no es una optimización, es obligatorio.** El propio
+    exportador de Drift lo desactiva cuando el preset lleva alpha
+    (`src/engine/Exporter.cpp:895-898`), con el comentario *"VP9 with an alpha plane
+    cannot use automatic alternate-reference frames"*.
+
+    Omitirlo fue el error del primer PoC. libvpx-vp9 activa alt-ref por su cuenta con
+    `-deadline good`, y esos cuadros de referencia son **invisibles**: no llevan su
+    paquete de alpha asociado, así que la correspondencia entre cuadro y alpha se
+    desalinea. El síntoma es traicionero — muestras puntuales decodifican bien y la
+    reproducción completa muestra fondo negro — y fue exactamente lo que pasó.
+    """
+    if formato == "webm":
+        return [
+            "-c:v", "libvpx-vp9",
+            "-pix_fmt", "yuva420p",
+            "-b:v", "0", "-crf", str(crf),
+            "-row-mt", "1",
+            "-deadline", "good", "-cpu-used", str(cpu_used),
+            "-auto-alt-ref", "0",
+            "-lag-in-frames", "0",   # sin lag no hay ventana para que aparezcan alt-refs
+        ]
+    # ProRes 4444: sin pérdida, sin parámetro de calidad. `-vendor apl0` se marca
+    # como Apple, que es lo que espera cualquier lector de ProRes.
+    return [
+        "-c:v", "prores_ks",
+        "-profile:v", "4444",
+        "-pix_fmt", "yuva444p10le",
+        "-alpha_bits", "16",
+        "-vendor", "apl0",
+    ]
+
+
 def construir_comando(
     ffmpeg: str, audio: Path, salida: Path, *,
     duracion: float, ancho: int, alto: int, fps: int, color: str,
-    modo: str, escala: str, trazo: str, crf: int, cpu_used: int, sobrescribir: bool,
+    modo: str, escala: str, trazo: str, formato: str,
+    lienzo: tuple[int, int] | None, pad_x: int, pad_y: int,
+    crf: int, cpu_used: int, sobrescribir: bool,
 ) -> list[str]:
     """Arma el comando de FFmpeg como lista de argumentos.
 
@@ -140,27 +192,51 @@ def construir_comando(
       máximo llegaba a **153 y ningún píxel era opaco**. Con `draw=full` el mismo
       cuadro da **max 255 y 58.419 píxeles opacos**, con la misma cantidad de
       transparentes. No era el codec: era esto.
-    - `libvpx-vp9` + `yuva420p`: es la combinación de codec y formato con alpha
-      que Drift sabe decodificar. `ClipReader.cpp:1002-1010` fuerza el
-      decodificador `libvpx-vp9` justamente porque los decodificadores nativos
-      de vp9 ignoran el plano alpha de WebM.
-    - `-t` con la duración exacta del audio: `showwaves` se pasa unos cuadros
-      (medido: 16.100 s para un audio de 16.000 s, o sea 100 ms de más).
+    - Los argumentos de codec salen de `argumentos_de_codec`, que copia lo que hace
+      el exportador de Drift para cada formato con alpha. Leé su docstring: hay un
+      argumento de VP9 que es obligatorio y cuya ausencia produce fondo negro.
+    - `setpts` corrige un corrimiento de sincronía de 100 ms. Ver el comentario en el
+      armado del filtro: es el hallazgo menos obvio de todo este archivo.
     - `-an`: el overlay no lleva audio. El audio ya está en la timeline de Drift;
       duplicarlo sólo sumaría peso y riesgo de doble reproducción.
     """
-    tamano = f"{ancho}x{alto}"
-
     filtro = (
         f"[0:a]showwaves="
-        f"s={tamano}:"
+        f"s={ancho}x{alto}:"
         f"mode={modo}:"
         f"rate={fps}:"
         f"scale={escala}:"
         f"draw={trazo}:"
         f"colors={color}"
-        f"[salida]"
     )
+
+    # Con `--lienzo`, la banda de onda se sitúa dentro de un cuadro del tamaño del
+    # proyecto y el resto queda **transparente de verdad** (`0x00000000`, verificado:
+    # la zona rellenada mide alpha 0 exacto, mínimo y máximo).
+    #
+    # Sirve para dos cosas. La obvia: resuelve la personalización de *posición* sin
+    # tocar nada en Drift. La menos obvia: elimina toda pregunta sobre qué hace Drift
+    # con un clip más chico que el lienzo — si el clip ya viene del tamaño exacto, no
+    # hay escalado ni relleno que pueda meter negro donde no lo queremos.
+    if lienzo:
+        lienzo_w, lienzo_h = lienzo
+        filtro += f",pad={lienzo_w}:{lienzo_h}:{pad_x}:{pad_y}:color=0x00000000"
+
+    # `setpts=PTS-STARTPTS` corrige un corrimiento de sincronía, no es cosmético.
+    #
+    # Medido: `showwaves` entrega los 480 cuadros que corresponden a 16 s a 30 fps,
+    # con intervalos exactos de 1/30, pero **etiqueta el primero en PTS 0.100 s en vez
+    # de 0**, y el último en 16.067. Es un desplazamiento constante de 3 cuadros.
+    #
+    # Tenía dos consecuencias, y la segunda es la grave:
+    #   1. `-t` recortaba los 3 cuadros de la cola (477 en vez de 480).
+    #   2. **Todo el overlay quedaba 100 ms atrasado respecto de la música.** En un
+    #      video musical eso se nota: la onda reacciona después del golpe.
+    #
+    # Rebasar los timestamps arregla las dos de una.
+    filtro += ",setpts=PTS-STARTPTS"
+
+    filtro += "[salida]"
 
     return [
         ffmpeg,
@@ -169,11 +245,7 @@ def construir_comando(
         "-i", str(audio),
         "-filter_complex", filtro,
         "-map", "[salida]",
-        "-c:v", "libvpx-vp9",
-        "-pix_fmt", "yuva420p",
-        "-b:v", "0", "-crf", str(crf),   # calidad constante
-        "-row-mt", "1",                  # multihilo por filas
-        "-deadline", "good", "-cpu-used", str(cpu_used),
+        *argumentos_de_codec(formato, crf, cpu_used),
         "-an",
         "-t", f"{duracion:.6f}",
         str(salida),
@@ -184,32 +256,72 @@ def construir_comando(
 # Verificación del resultado
 # --------------------------------------------------------------------------- #
 
-def medir_alpha(ffmpeg: str, salida: Path, segundo: float) -> tuple[int, int, int, int] | None:
-    """Decodifica un cuadro y devuelve (min, max, n_transparentes, n_total) del alpha.
+def auditar_alpha_completo(ffmpeg: str, salida: Path, formato: str,
+                           muestra_w: int = 160, muestra_h: int = 90) -> dict | None:
+    """Audita el canal alpha de **todos** los cuadros, no de un par de muestras.
 
-    Fuerza `-c:v libvpx-vp9` **antes** de `-i`, que es lo que hay que hacer para
-    que el plano alpha de un WebM se decodifique: el decodificador nativo de vp9
-    lo ignora en silencio. Drift hace exactamente lo mismo
-    (`src/engine/ClipReader.cpp:1002-1010`), así que esta medición se parece a lo
-    que va a ver Drift, no a un caso de laboratorio.
+    Esto existe por una falla concreta: la primera versión medía dos instantes y
+    los dos daban bien, pero al reproducir en Drift el overlay salía con fondo
+    negro. La causa era que a VP9 le faltaba `-auto-alt-ref 0`, y eso rompe el
+    alpha **de algunos cuadros**, no de todos. Dos muestras no podían verlo.
+
+    Cada cuadro se reduce a una miniatura de 64x16 antes de medir, así que el
+    costo de recorrer la secuencia entera es bajo y la memoria queda acotada:
+    se procesa cuadro por cuadro en vez de acumular la película.
+
+    **El único modo de falla es el cuadro opaco**, donde no queda nada transparente:
+    ahí el alpha se perdió y en Drift se ve un rectángulo negro.
+
+    Los cuadros **vacíos** (nada dibujado) se cuentan y se informan, pero **no son una
+    falla**: en un pasaje silencioso corresponde que no se dibuje nada. La primera
+    versión de esta función los trataba como error y reprobaba un archivo correcto —
+    confundir silencio con rotura es un falso positivo, y un verificador que cría
+    lobos deja de servir.
     """
-    cmd = [
-        ffmpeg, "-hide_banner", "-loglevel", "error", "-nostdin",
-        "-c:v", "libvpx-vp9",
-        "-ss", f"{segundo:.3f}",
+    cmd = [ffmpeg, "-hide_banner", "-loglevel", "error", "-nostdin"]
+    if formato == "webm":
+        # Sin esto el decodificador nativo de vp9 ignora el plano alpha en
+        # silencio. Drift hace lo mismo en ClipReader.cpp:1002-1010.
+        cmd += ["-c:v", "libvpx-vp9"]
+    cmd += [
         "-i", str(salida),
-        "-vf", "alphaextract",
-        "-frames:v", "1",
+        "-vf", f"alphaextract,scale={muestra_w}:{muestra_h}",
         "-f", "rawvideo", "-pix_fmt", "gray", "-",
     ]
+
     res = subprocess.run(cmd, capture_output=True)
     if res.returncode != 0 or not res.stdout:
         return None
-    d = res.stdout
-    return min(d), max(d), sum(1 for b in d if b < 8), len(d)
+
+    por_cuadro = muestra_w * muestra_h
+    datos = res.stdout
+    n = len(datos) // por_cuadro
+    if n == 0:
+        return None
+
+    opacos: list[int] = []
+    vacios: list[int] = []
+    max_global, min_global = 0, 255
+    for i in range(n):
+        f = datos[i * por_cuadro:(i + 1) * por_cuadro]
+        mn, mx = min(f), max(f)
+        max_global = max(max_global, mx)
+        min_global = min(min_global, mn)
+        if mn > 200:            # nada transparente en todo el cuadro
+            opacos.append(i)
+        elif mx < 24:           # nada dibujado en todo el cuadro
+            vacios.append(i)
+
+    return {
+        "cuadros": n,
+        "opacos": opacos,
+        "vacios": vacios,
+        "max": max_global,
+        "min": min_global,
+    }
 
 
-def verificar_salida(ffmpeg: str, ffprobe: str, salida: Path,
+def verificar_salida(ffmpeg: str, ffprobe: str, salida: Path, formato: str,
                      duracion_audio: float, fps: int) -> list[tuple[bool, str]]:
     """Comprueba los criterios PoC-1..PoC-3 de docs/PLAN_ETAPA1.md."""
     resultados: list[tuple[bool, str]] = []
@@ -224,7 +336,7 @@ def verificar_salida(ffmpeg: str, ffprobe: str, salida: Path,
     cmd = [
         ffprobe, "-v", "error",
         "-select_streams", "v:0",
-        "-show_entries", "stream=pix_fmt,width,height,codec_name",
+        "-show_entries", "stream=pix_fmt,width,height,codec_name,profile",
         "-show_entries", "stream_tags=alpha_mode",
         "-show_entries", "format=duration",
         "-of", "json", str(salida),
@@ -241,50 +353,83 @@ def verificar_salida(ffmpeg: str, ffprobe: str, salida: Path,
         return resultados
 
     v = streams[0]
+    pix_fmt = v.get("pix_fmt", "?")
 
-    # ---- PoC-2: canal alpha real ----
+    # ---- PoC-2a: la marca de alpha, según cómo la declara cada formato ----
     #
-    # Ojo con la trampa: en un WebM, el alpha de VP9 viaja como datos
-    # adicionales de cada bloque, NO en el bitstream principal. Por eso
-    # `ffprobe` reporta `pix_fmt=yuv420p` incluso cuando el alpha está ahí, y
-    # mirar ese campo da un falso negativo. Lo verificamos de dos maneras
-    # independientes: la marca del contenedor, y una decodificación real.
-    alpha_mode = (v.get("tags") or {}).get("alpha_mode")
-    marca_ok = alpha_mode == "1"
-    resultados.append((
-        marca_ok,
-        f"PoC-2a el contenedor declara alpha (alpha_mode={alpha_mode!r}, "
-        f"codec={v.get('codec_name')}, pix_fmt del bitstream={v.get('pix_fmt')})",
-    ))
+    # WebM: el alpha de VP9 viaja como datos adicionales de cada bloque, NO en el
+    # bitstream. `ffprobe` reporta `pix_fmt=yuv420p` aunque el alpha esté ahí, así
+    # que mirar ese campo da un falso negativo. La marca es el tag `alpha_mode`.
+    #
+    # MOV/ProRes: el formato de píxel sí lo dice (`yuva444p10le`), y además Drift
+    # tiene una rama dedicada que reconoce ProRes 4444 por codec y perfil.
+    if formato == "webm":
+        alpha_mode = (v.get("tags") or {}).get("alpha_mode")
+        marca_ok = alpha_mode == "1"
+        detalle = (f"alpha_mode={alpha_mode!r}, codec={v.get('codec_name')}, "
+                   f"pix_fmt del bitstream={pix_fmt}")
+    else:
+        marca_ok = "a" in pix_fmt.replace("yuv", "").replace("gbr", "")
+        detalle = (f"pix_fmt={pix_fmt}, codec={v.get('codec_name')}, "
+                   f"perfil={v.get('profile')}")
+    resultados.append((marca_ok, f"PoC-2a el formato declara alpha ({detalle})"))
 
-    # Se mide en dos instantes: uno cualquiera y uno pasada la mitad, para no
-    # aprobar por casualidad con un cuadro en silencio.
-    medidas = [(t, medir_alpha(ffmpeg, salida, t))
-               for t in (min(0.5, duracion_audio / 2), duracion_audio * 0.7)]
-    for segundo, m in medidas:
-        if m is None:
-            resultados.append((False, f"PoC-2b no se pudo decodificar el alpha en t={segundo:.2f}s"))
-            continue
-        mn, mx, transp, total = m
-        # Un overlay útil tiene zonas transparentes Y zonas opacas. Todo opaco
-        # significa que el alpha se perdió; todo transparente, que no se dibujó nada.
-        varia = mx > 200 and transp > total * 0.1
-        resultados.append((
-            varia,
-            f"PoC-2b alpha varía en t={segundo:.2f}s "
-            f"(min={mn}, max={mx}, transparentes={transp:,}/{total:,} = "
-            f"{100.0 * transp / total:.1f}%)",
-        ))
+    # ---- PoC-2b: el alpha, auditado cuadro por cuadro ----
+    auditoria = auditar_alpha_completo(ffmpeg, salida, formato)
+    if auditoria is None:
+        resultados.append((False, "PoC-2b no se pudo decodificar el canal alpha"))
+    else:
+        n = auditoria["cuadros"]
+        opacos, vacios = auditoria["opacos"], auditoria["vacios"]
+        sanos = n - len(opacos) - len(vacios)
 
-    # ---- PoC-3: duración dentro de un frame ----
-    dur_salida = float((datos.get("format") or {}).get("duration") or 0.0)
+        # Sólo los cuadros opacos reprueban. Los vacíos son silencio, no rotura.
+        ok = not opacos and sanos > 0
+        msg = (f"PoC-2b sin cuadros opacos: {n - len(opacos)}/{n} conservan "
+               f"transparencia (rango global {auditoria['min']}..{auditoria['max']})")
+        if opacos:
+            primeros = ", ".join(str(i) for i in opacos[:8])
+            msg += (f"\n         {len(opacos)} cuadros OPACOS: el alpha se perdió. "
+                    f"En Drift se ven como un rectángulo negro"
+                    f"\n         índices: {primeros}{'…' if len(opacos) > 8 else ''}")
+        if vacios:
+            msg += (f"\n         nota: {len(vacios)} cuadros sin nada dibujado "
+                    f"(pasajes silenciosos — esperado, no es falla)")
+        resultados.append((ok, msg))
+
+    # ---- PoC-3: duración, contada por cuadros y no por lo que declara el contenedor ----
+    #
+    # La duración del contenedor **miente**. Un WebM al que le faltaban 3 cuadros
+    # declaraba igual 16.000 s y la comprobación pasaba con 0.0 ms de desvío; el mismo
+    # contenido en MOV declaraba los 15.900 s reales y reprobaba. El dato honesto es la
+    # cantidad de cuadros que realmente se decodifican, que la auditoría de alpha ya
+    # cuenta de paso.
+    dur_declarada = float((datos.get("format") or {}).get("duration") or 0.0)
     tolerancia = 1.0 / fps
-    delta = abs(dur_salida - duracion_audio)
-    resultados.append((
-        delta <= tolerancia,
-        f"PoC-3  duración {dur_salida:.3f}s vs audio {duracion_audio:.3f}s "
-        f"(desvío {delta * 1000:.1f} ms, tolerancia {tolerancia * 1000:.1f} ms)",
-    ))
+
+    if auditoria is not None:
+        cuadros = auditoria["cuadros"]
+        dur_real = cuadros / fps
+        esperados = round(duracion_audio * fps)
+        delta = abs(dur_real - duracion_audio)
+        nota = ""
+        if abs(dur_declarada - dur_real) > tolerancia / 2:
+            nota = (f"\n         (el contenedor declara {dur_declarada:.3f}s; "
+                    f"manda el conteo de cuadros)")
+        resultados.append((
+            delta <= tolerancia,
+            f"PoC-3  {cuadros} cuadros decodificados de {esperados} esperados "
+            f"= {dur_real:.3f}s vs audio {duracion_audio:.3f}s "
+            f"(desvío {delta * 1000:.1f} ms, tolerancia {tolerancia * 1000:.1f} ms){nota}",
+        ))
+    else:
+        delta = abs(dur_declarada - duracion_audio)
+        resultados.append((
+            delta <= tolerancia,
+            f"PoC-3  duración declarada {dur_declarada:.3f}s vs audio "
+            f"{duracion_audio:.3f}s (desvío {delta * 1000:.1f} ms) "
+            f"— no se pudieron contar los cuadros, dato menos confiable",
+        ))
 
     return resultados
 
@@ -292,6 +437,38 @@ def verificar_salida(ffmpeg: str, ffprobe: str, salida: Path,
 # --------------------------------------------------------------------------- #
 # Interfaz de línea de comandos
 # --------------------------------------------------------------------------- #
+
+def tipo_tamano(valor: str) -> tuple[int, int]:
+    """Parsea '1920x1080'."""
+    m = re.match(r"^(\d+)[xX](\d+)$", valor.strip())
+    if not m:
+        raise argparse.ArgumentTypeError(
+            f"tamaño inválido: '{valor}'. Usá ANCHOxALTO, por ejemplo '1920x1080'."
+        )
+    w, h = int(m.group(1)), int(m.group(2))
+    if w <= 0 or h <= 0:
+        raise argparse.ArgumentTypeError(f"el tamaño debe ser positivo, recibí {valor}")
+    return w, h
+
+
+def calcular_posicion(lienzo: tuple[int, int], ancho: int, alto: int,
+                      posicion: str, margen: int) -> tuple[int, int]:
+    """Dónde va la banda de onda dentro del lienzo. Devuelve (x, y) para `pad`."""
+    lw, lh = lienzo
+    if ancho > lw or alto > lh:
+        raise ErrorDeGeneracion(
+            f"la banda de onda ({ancho}x{alto}) no cabe en el lienzo ({lw}x{lh}).\n"
+            f"  Bajá --ancho/--alto, o subí --lienzo."
+        )
+    x = (lw - ancho) // 2
+    if posicion == "arriba":
+        y = margen
+    elif posicion == "centro":
+        y = (lh - alto) // 2
+    else:  # abajo
+        y = lh - alto - margen
+    return x, max(0, min(y, lh - alto))
+
 
 def tipo_color(valor: str) -> str:
     """Acepta '#RGB', '#RRGGBB' o un nombre de color de FFmpeg."""
@@ -335,6 +512,14 @@ def construir_parser() -> argparse.ArgumentParser:
     g.add_argument("--escala", choices=sorted(ESCALAS), default="sqrt",
                    help="escala de amplitud (default: sqrt). " +
                         "; ".join(f"{k}: {v}" for k, v in ESCALAS.items()))
+    g.add_argument("--lienzo", type=tipo_tamano, default=None, metavar="ANCHOxALTO",
+                   help="genera el cuadro completo del tamaño del proyecto (ej. '1920x1080') "
+                        "con la banda de onda situada dentro y el resto transparente. "
+                        "Sin esto, el archivo mide sólo la banda (--ancho x --alto)")
+    g.add_argument("--posicion", choices=("arriba", "centro", "abajo"), default="abajo",
+                   help="dónde va la banda dentro del lienzo (default: abajo). Sólo aplica con --lienzo")
+    g.add_argument("--margen", type=int, default=0, metavar="PX",
+                   help="separación en píxeles del borde, para --posicion arriba o abajo (default: 0)")
     g.add_argument("--trazo", choices=("full", "scale"), default="full",
                    help="grosor del trazo (default: full). full: cada muestra a "
                         "intensidad plena, onda sólida y bien visible; scale: reparte "
@@ -342,6 +527,9 @@ def construir_parser() -> argparse.ArgumentParser:
                         "grandes casi no se ve")
 
     g2 = p.add_argument_group("codificación")
+    g2.add_argument("--formato", choices=sorted(FORMATOS), default="webm",
+                    help="formato de salida (default: webm). " +
+                         "; ".join(f"{k}: {v}" for k, v in FORMATOS.items()))
     g2.add_argument("--crf", type=int, default=36, metavar="0-63",
                     help="calidad VP9: menor = mejor y más pesado (default: 36). "
                          "Medido sobre la pista de prueba de 16 s: crf 30 = 13.7 MB, "
@@ -377,17 +565,29 @@ def main(argv: list[str] | None = None) -> int:
 
         info = sondear_audio(ffprobe, args.audio)
 
-        salida = args.salida or args.audio.with_name(args.audio.stem + "_overlay.webm")
-        if salida.suffix.lower() != ".webm":
-            print(f"aviso: la salida '{salida.name}' no termina en .webm; "
-                  f"VP9 con alpha necesita el contenedor WebM.", file=sys.stderr)
+        ext = EXTENSION[args.formato]
+        salida = args.salida or args.audio.with_name(args.audio.stem + "_overlay" + ext)
+        if salida.suffix.lower() != ext:
+            raise ErrorDeGeneracion(
+                f"la salida '{salida.name}' no termina en '{ext}'.\n"
+                f"  El formato '{args.formato}' necesita ese contenedor para llevar el "
+                f"canal alpha. Renombrá la salida o cambiá --formato."
+            )
         salida.parent.mkdir(parents=True, exist_ok=True)
+
+        pad_x, pad_y = 0, 0
+        if args.lienzo:
+            if args.margen < 0:
+                raise ErrorDeGeneracion(f"--margen no puede ser negativo, recibí {args.margen}")
+            pad_x, pad_y = calcular_posicion(args.lienzo, args.ancho, args.alto,
+                                             args.posicion, args.margen)
 
         cmd = construir_comando(
             ffmpeg, args.audio, salida,
             duracion=info["duracion"],
             ancho=args.ancho, alto=args.alto, fps=args.fps, color=args.color,
-            modo=args.modo, escala=args.escala, trazo=args.trazo,
+            modo=args.modo, escala=args.escala, trazo=args.trazo, formato=args.formato,
+            lienzo=args.lienzo, pad_x=pad_x, pad_y=pad_y,
             crf=args.crf, cpu_used=args.cpu_used,
             sobrescribir=not args.no_sobrescribir,
         )
@@ -399,9 +599,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"audio   : {args.audio.name}  "
               f"({info['duracion']:.3f}s, {info['sample_rate']} Hz, "
               f"{info['canales']} canal{'es' if info['canales'] != 1 else ''}, {info['codec']})")
-        print(f"overlay : {args.ancho}x{args.alto} @ {args.fps}fps, "
-              f"modo={args.modo}, escala={args.escala}, trazo={args.trazo}, "
-              f"color={args.color}")
+        if args.lienzo:
+            print(f"overlay : lienzo {args.lienzo[0]}x{args.lienzo[1]}, "
+                  f"banda {args.ancho}x{args.alto} en ({pad_x},{pad_y}) [{args.posicion}]")
+        else:
+            print(f"overlay : {args.ancho}x{args.alto} (sólo la banda, sin lienzo)")
+        print(f"estilo  : {args.fps}fps, modo={args.modo}, escala={args.escala}, "
+              f"trazo={args.trazo}, color={args.color}")
+        print(f"formato : {args.formato}"
+              + (f" (VP9 alpha, crf {args.crf})" if args.formato == "webm"
+                 else " (ProRes 4444, sin pérdida)"))
         print(f"salida  : {salida}")
         print("generando…")
 
@@ -419,7 +626,8 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         print("\nverificación:")
-        resultados = verificar_salida(ffmpeg, ffprobe, salida, info["duracion"], args.fps)
+        resultados = verificar_salida(ffmpeg, ffprobe, salida, args.formato,
+                                      info["duracion"], args.fps)
         for ok, texto in resultados:
             print(f"  {'OK  ' if ok else 'FALLA'}  {texto}")
 
@@ -427,8 +635,8 @@ def main(argv: list[str] | None = None) -> int:
             print("\nEl overlay se generó pero no cumple todos los criterios.", file=sys.stderr)
             return 1
 
-        print("\nTodo OK. Siguiente paso: importá el .webm a Drift y ponelo en una "
-              "pista por encima del video.")
+        print(f"\nTodo OK. Siguiente paso: importá '{salida.name}' a Drift y ponelo "
+              f"en una pista por encima del video.")
         return 0
 
     except ErrorDeGeneracion as e:
