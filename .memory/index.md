@@ -35,6 +35,9 @@ Las notas se alcanzan por su MOC de dominio, así que este índice no engorda cu
 | Documento principal de la bóveda | [[index]] | `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\.memory\index.md` |
 | Bitácora de la bóveda (append-only) | [[log]] | `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\.memory\log.md` |
 | Índice del registro de handoffs | [[MOC_Handoffs]] | `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\.memory\wiki\MOC_Handoffs.md` |
+| Generador de overlay (fuera de la bóveda) | — | `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\tools\generar_overlay.py` |
+| Audio de prueba del proyecto (fuera de la bóveda) | — | `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\tests\fixtures\pista_prueba.wav` |
+| Resultados del PoC (fuera de la bóveda) | — | `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\docs\POC_RESULTADOS.md` |
 | Registro de handoffs (la carpeta) | — | `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\.memory\handoffs\` |
 | Nota: el editor Drift | [[Drift_editor]] | `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\.memory\wiki\Drift_editor.md` |
 | Nota: extensibilidad de Drift | [[Extensibilidad_de_Drift]] | `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\.memory\wiki\Extensibilidad_de_Drift.md` |

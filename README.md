@@ -8,9 +8,19 @@ Proyecto de **Jonatan Córdoba**, usuario externo de Drift — **no forma parte 
 
 ## Estado
 
-**Etapa 1, turno 1 cerrado. Investigación de viabilidad terminada. Desarrollo detenido esperando decisiones del fundador.**
+**Etapa 1, turno 2 cerrado. Camino A aprobado. El generador de overlay funciona.**
+
+Los tres criterios del PoC que se pueden medir sin Drift están verificados. Los tres que faltan requieren **Drift abierto**, y ese es el próximo turno.
 
 El estado vivo y el próximo paso concreto están en **[`RETOMAR.md`](RETOMAR.md)**. Si sos un agente que retoma este proyecto, **empezá por ahí.**
+
+### Probarlo
+
+```powershell
+python tools\generar_overlay.py tests\fixtures\pista_prueba.wav -o build\onda.webm --color "#00E5FF"
+```
+
+Produce un WebM con canal alpha que se importa a Drift y se pone en una pista por encima del video.
 
 ---
 
@@ -21,7 +31,9 @@ El estado vivo y el próximo paso concreto están en **[`RETOMAR.md`](RETOMAR.md
 | Entender el propósito y la autoridad del proyecto | [`sobre_este_plugins.txt`](sobre_este_plugins.txt) — documento fundacional, firmado |
 | Saber dónde retomar el trabajo | [`RETOMAR.md`](RETOMAR.md) |
 | Saber si esto es técnicamente posible y por qué | [`docs/VIABILIDAD.md`](docs/VIABILIDAD.md) |
-| Ver el alcance, el presupuesto y los criterios de aceptación | [`docs/PLAN_ETAPA1.md`](docs/PLAN_ETAPA1.md) |
+| Ver el alcance, el presupuesto y las decisiones del fundador | [`docs/PLAN_ETAPA1.md`](docs/PLAN_ETAPA1.md) |
+| Ver qué mide el PoC y qué salió mal en el camino | [`docs/POC_RESULTADOS.md`](docs/POC_RESULTADOS.md) |
+| Entender el audio de prueba | [`tests/fixtures/README.md`](tests/fixtures/README.md) |
 | Navegar la memoria técnica completa | [`.memory/index.md`](.memory/index.md) |
 | Ver el historial de turnos | [`.memory/log.md`](.memory/log.md) |
 
@@ -48,14 +60,23 @@ Razonamiento completo con citas por archivo y línea en [`docs/VIABILIDAD.md`](d
 ├── sobre_este_plugins.txt   Documento fundacional (autoridad sobre el propósito)
 ├── README.md                Esta puerta
 ├── RETOMAR.md               Estado vivo y próximo paso
+├── tools/
+│   └── generar_overlay.py   El generador de overlay
+├── tests/fixtures/
+│   ├── pista_prueba.wav     Audio de prueba del proyecto
+│   ├── generar_audio_prueba.py   Lo regenera de forma determinista
+│   └── README.md            Por qué está construido así
 ├── docs/
 │   ├── VIABILIDAD.md        ¿Es posible? Con evidencia citada
-│   └── PLAN_ETAPA1.md       Alcance, presupuesto, criterios de aceptación
+│   ├── PLAN_ETAPA1.md       Alcance, presupuesto, decisiones del fundador
+│   ├── POC_RESULTADOS.md    Mediciones del PoC y trampas encontradas
+│   └── evidencia/           Capturas que respaldan las mediciones
 ├── .memory/                 Memoria técnica (bóveda Obsidian)
 │   ├── index.md             Índice de doble lectura (humano / agente)
 │   ├── log.md               Bitácora append-only
 │   ├── wiki/                Notas de dominio con evidencia
 │   └── handoffs/            Un handoff por turno de agente
+├── build/                   NO versionado — salidas de render
 └── _reference/              NO versionado — clon de sólo lectura de Drift
 ```
 

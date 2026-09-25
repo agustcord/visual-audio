@@ -2,23 +2,19 @@
 
 **Documento vivo.** Cada agente lo actualiza al cerrar su turno. Si lo que dice acá contradice a otro documento, gana la bitácora `.memory/log.md` — pero entonces alguien tiene que arreglar este archivo.
 
-**Última actualización:** 2026-09-25, turno T1, agente Kiro.
+**Última actualización:** 2026-09-25, turno T2, agente Kiro.
 
 ---
 
-## 🔴 Estado: DETENIDO esperando al fundador
+## 🟡 Estado: PoC funcionando. El próximo turno necesita al fundador con Drift abierto.
 
-El desarrollo **no arrancó a propósito**. El documento fundacional ordena definir presupuesto y alcance *antes* de desarrollar, y hay tres decisiones que no corresponde que tome un agente.
+El camino A está aprobado y en marcha. El generador de overlay funciona y cumple los tres criterios que se pueden verificar sin Drift. **Los tres que faltan requieren Drift.**
 
-### Las tres preguntas abiertas
+### ⚠️ Lo primero que tiene que hacer el próximo agente
 
-Están desarrolladas en [`docs/PLAN_ETAPA1.md`](docs/PLAN_ETAPA1.md) §1. Resumidas:
+**Avisarle al fundador que este turno necesita Drift abierto.** Lo pidió explícitamente en el Gate: *"sobre el momento que necesite Drift abierto avisame en ese turno"*.
 
-1. **¿Qué camino técnico?** Recomendado: **A** (generar el visualizador con FFmpeg y componerlo como overlay con alpha), con **B** (keyframes calculados vía MCP) como capa opcional. **C** (forkear Drift) queda como evolución futura.
-
-2. **¿Se acepta el modelo "overlay pre-renderizado"?** Tamaño, posición, opacidad y velocidad quedan manejados por los controles nativos de Drift, gratis. El costo: cambiar **color** o **estilo** requiere regenerar el overlay — no hay slider de color en vivo. Es la consecuencia directa del bloqueo técnico.
-
-3. **¿Se aprueba el presupuesto?** Propuesto: **10–14 turnos** para la Etapa 1 completa (PoC + MVP), con un punto de control duro después del turno de validación del PoC.
+**No hace falta activar el servidor MCP de Drift.** Ya se le respondió esa pregunta: la importación de T5 es manual. MCP sólo sería necesario para automatizar la colocación del overlay, que es opcional del MVP — y si se llega a eso, hay que pedirlo aparte.
 
 ---
 
@@ -26,69 +22,98 @@ Están desarrolladas en [`docs/PLAN_ETAPA1.md`](docs/PLAN_ETAPA1.md) §1. Resumi
 
 | | Qué | Dónde |
 |---|---|---|
-| ✅ | Proyecto registrado en la bóveda de memoria Obsidian | `.memory/` |
-| ✅ | Repositorio git inicializado, con `.gitignore` | `.gitignore` |
-| ✅ | Investigación de viabilidad, con evidencia por archivo y línea | `docs/VIABILIDAD.md` |
-| ✅ | Notas de dominio sobre Drift, su extensibilidad y su audio | `.memory/wiki/` |
-| ✅ | Plan, presupuesto y criterios de aceptación falsables | `docs/PLAN_ETAPA1.md` |
-| ✅ | Handoff del turno 1 | `.memory/handoffs/T1_registro_y_viabilidad_20260925.md` |
-| ✅ | Commit de línea base (la "protección" que pide el documento fundacional) | rama `master` |
-| ⬜ | Gate del fundador sobre las tres decisiones | `docs/PLAN_ETAPA1.md` §7 |
-| ⬜ | Código de producto — **nada escrito todavía** | — |
+| ✅ | Proyecto registrado en la bóveda de memoria | `.memory/` |
+| ✅ | Repositorio git con commit de línea base | rama `master` |
+| ✅ | Investigación de viabilidad con evidencia | `docs/VIABILIDAD.md` |
+| ✅ | **Gate del fundador registrado** — camino A habilitado | `docs/PLAN_ETAPA1.md` §7 |
+| ✅ | **Audio de prueba del proyecto** (pedido del fundador) | `tests/fixtures/pista_prueba.wav` |
+| ✅ | **Generador de overlay funcionando** | `tools/generar_overlay.py` |
+| ✅ | PoC-1, PoC-2, PoC-3 verificados con mediciones | `docs/POC_RESULTADOS.md` |
+| ⬜ | **PoC-4, PoC-5, PoC-6** — requieren Drift abierto | — |
+| ⬜ | MVP: modos de espectro (hoy **no funcionan**) | — |
 
 ---
 
-## El próximo paso concreto
+## El próximo paso concreto: T5
 
-**Si el fundador aprueba el camino A**, el turno T2 hace, en este orden:
+Es el **punto de control duro** del plan. Tres criterios, y uno decide si el camino A sigue en pie.
 
-1. **Registrar el Gate.** Completar la tabla de `docs/PLAN_ETAPA1.md` §7 con las palabras del fundador, verbatim y con fecha. Sin esto el plan sigue en borrador.
-2. **Andamiaje mínimo** del generador, sin lógica todavía: estructura de carpetas y decisión de lenguaje.
+### Cómo se hace
 
-Y después, T3–T4, el PoC: generar un overlay de onda con alpha desde un archivo de audio, cumpliendo los criterios **PoC-1 a PoC-4** de `docs/PLAN_ETAPA1.md` §2.
+1. Generar el overlay (si no está en `build/`):
 
-### ⚠️ El turno que decide todo es T5
+   ```powershell
+   python tools\generar_overlay.py tests\fixtures\pista_prueba.wav -o build\onda_prueba.webm --color "#00E5FF"
+   ```
 
-**PoC-5** — verificar que Drift compone la transparencia del overlay sobre una pista de video — **requiere al fundador con Drift abierto**. Si ese criterio falla, el camino A queda invalidado y hay que replantear antes de gastar un turno más. Conviene coordinarlo con anticipación.
+2. Pedirle al fundador que abra Drift y:
+   - Ponga cualquier video en una pista.
+   - Importe `build/onda_prueba.webm` (arrastrándolo) y lo coloque en una pista **por encima** del video.
+   - Mire si el video de fondo **se ve a través** del overlay.
 
-**Si el fundador elige el camino C** (fork de Drift), este plan no sirve: hay que presupuestar de nuevo. Estimación gruesa sólo para dimensionar: 8–15 turnos *nada más para compilar Drift sin modificarlo*, más mantenimiento indefinido del fork.
+### Los criterios
+
+| # | Qué verificar | Por qué importa |
+|---|---|---|
+| **PoC-4** | Drift lo importa sin marcarlo como faltante ni corrupto, con duración correcta | Si falla acá, el problema es el contenedor o el codec |
+| **PoC-5** | **Drift compone la transparencia**: se ve el video de fondo a través del overlay | 🔴 **Si esto falla, el camino A queda invalidado y hay que replantear antes de gastar un turno más.** No seguir al MVP con el camino roto |
+| **PoC-6** | La onda se mueve en sincronía con la música | Lo juzga el fundador a ojo |
+
+**Medir también, aunque no sea un criterio:** cuánto se pone lento el preview. Drift **niega proxies a clips con transparencia** (`PreviewProxyRenderer.cpp:40-45`), así que el overlay se decodifica por software. Si molesta, las palancas son `--alto` más chico, `--fps 24`, o `--crf` más alto.
+
+### Si PoC-5 pasa
+
+Sigue el MVP (T6–T9). El primer trabajo real ahí: **arreglar los modos de espectro**, que hoy no funcionan (ver abajo). El criterio MVP-1 pide dos estilos andando.
+
+---
+
+## Deuda conocida — no la redescubras
+
+| Tema | Detalle |
+|---|---|
+| **Espectro roto** | `showfreqs` renderiza todo amontonado en el 12% izquierdo del cuadro e ignora el `colors=` pedido. `showspectrum` directamente falló al renderizar un cuadro y **no se investigó**. Es un problema de mapeo de frecuencias. Evidencia: `docs/evidencia/T2_comparacion_modos.png` |
+| **Peso** | 11.6 MB por 16 s → ~130 MB por canción. Estructural: cada cuadro de `showwaves` es una ventana nueva, VP9 no puede predecir. De `--crf 30` a `48` sólo baja de 13.7 a 6.1 MB |
+| **Color ~1.5% corrido** | Se pide `#00E5FF` (G=229) y salen píxeles con G=225. Anotado, no investigado |
 
 ---
 
 ## Lo que un agente nuevo tiene que saber antes de tocar nada
 
-**El hallazgo central, en una línea:** Drift no le da ningún dato de audio a sus shaders. No hay uniform, textura ni buffer de audio en el pipeline de render.
+**El hallazgo central:** Drift no le da ningún dato de audio a sus shaders. Por eso el visualizador se genera **fuera** de Drift y se compone como overlay, en vez de ser un efecto que reacciona a la música. Si vas a proponer arquitectura, leé `.memory/wiki/Audio_reactividad_en_Drift.md` primero.
 
-Eso significa que **un visualizador no puede ser un efecto GPU que reaccione a la música**, que es lo primero que cualquiera intenta. Si vas a proponer arquitectura, **leé `.memory/wiki/Audio_reactividad_en_Drift.md` primero.** Tiene las citas por archivo y línea, y explica por qué el atajo obvio (hornear un espectrograma a PNG y leerlo desde el shader) tampoco funciona.
+### Trampas del generador, ya pagadas
 
-### Datos operativos que ya están verificados
+Están desarrolladas en `docs/POC_RESULTADOS.md`. Resumen para que nadie las repita:
+
+1. **`-shortest` no corta un `filter_complex`.** Una fuente `color` sin `d=` es infinita y no termina nunca.
+2. **`alphamerge` no sirve para esto** — devolvía alpha 255 en todo el cuadro. Y no hace falta: **`showwaves` ya emite RGBA con fondo transparente** y acepta `colors=` directo.
+3. **`draw=full` no es opcional.** El default `scale` dibuja con alpha máximo 153 y cero píxeles opacos.
+4. **No midas con `-ss` antes de `showwaves`**: el primer cuadro después de un salto está incompleto y parece un visualizador roto. Usá `select='gte(n\,<N>)'`. Saltar sobre el `.webm` ya codificado sí es válido.
+5. **`ffprobe` reporta `pix_fmt=yuv420p` en un WebM que sí tiene alpha.** En WebM el alpha de VP9 va como datos adicionales de cada bloque. Verificá con el tag `alpha_mode` y decodificando con `-c:v libvpx-vp9` **antes** de `-i`. Drift hace exactamente eso mismo.
+
+### Datos operativos verificados
 
 - **Drift instalado:** `C:\Program Files\Drift\drift.exe` — **sólo lectura**, no escribir ahí.
-- **Paquetes propios van a:** `C:\Users\Jonatan Agustín\AppData\Roaming\CutWire Drift\effects\` — escribible, sin verificación de firma.
-- **FFmpeg:** `C:\ffmpeg\bin\ffmpeg.exe`, versión 8.0.1, con `showwaves`, `showspectrum`, `showfreqs`, `showcqt`, `avectorscope` compilados.
-- **Código de referencia de Drift:** `_reference/drift-src/` (no versionado; el comando para reconstruirlo está en el handoff T1).
-- **MCP de Drift:** se activa en Settings → Agent access. Apagado en cada arranque, bind sólo a `127.0.0.1`, token rotativo por sesión.
+- **Paquetes propios irían a:** `%APPDATA%\CutWire Drift\effects\` — escribible, sin firma. (Hoy no usamos esta vía.)
+- **FFmpeg:** `C:\ffmpeg\bin\ffmpeg.exe` 8.0.1, con `showwaves`, `showspectrum`, `showfreqs`, `showcqt`, `avectorscope`.
+- **Python:** 3.14.6.
+- **Código de referencia de Drift:** `_reference/drift-src/` (no versionado; comando de reconstrucción en el handoff T1).
 
-### Trampas ya documentadas, no las redescubras
+### Límites que el fundador fijó
 
-- `apply` de MCP **no es atómico**: para en el primer error y deja aplicado lo anterior.
-- Un batch de MCP **no puede referenciar un id creado en el mismo batch**.
-- El análisis de beats de Drift es **transitorio**: cualquier edición que cambie la mezcla lo invalida. Chequear `stale`.
-- Drift **niega proxies de preview a clips con transparencia** → preview caro con overlays.
-- Los addons `.driftpkg` exigen **firma Ed25519**: esa vía de distribución está cerrada para un tercero.
-- Las texturas de paquete se cachean **de por vida del proceso**, sin mtime en la clave.
+- **Compromiso nulo con terceros.** No forkear Drift, no ofrecer PR a upstream, no contactar a CutWire Studios.
+- **No activar el servidor MCP de Drift** sin pedírselo antes.
+- Camino B fuera del alcance (pero **no** por costo: es barato, simplemente no hace falta — ver `docs/PLAN_ETAPA1.md` §7).
 
 ---
 
 ## Vigencia
 
-El informe de viabilidad describe la rama `main` de Drift al **2026-09-25**. Drift está en desarrollo activo.
-
-Si pasó tiempo, **re-verificá el hallazgo central** antes de confiar en el plan:
+El informe de viabilidad describe la rama `main` de Drift al **2026-09-25**. Si pasó tiempo, re-verificá el hallazgo central antes de confiar en el plan:
 
 ```powershell
 Select-String -Path "_reference\drift-src\src\**\*.cpp","_reference\drift-src\src\**\*.h" `
   -Pattern "u_audio|u_beat|u_rms|u_energy|u_band"
 ```
 
-Si eso devuelve algo en el pipeline de render (no en medidores de UI), upstream agregó audio a los shaders: el camino C se volvió barato y `docs/VIABILIDAD.md` quedó obsoleto.
+Si eso devuelve algo en el pipeline de render (no en medidores de UI), upstream agregó audio a los shaders y `docs/VIABILIDAD.md` quedó obsoleto.
