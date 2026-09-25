@@ -275,3 +275,97 @@ python tools\generar_overlay.py cancion.mp3 --lienzo 1920x1080 --posicion abajo 
 ```
 
 Resuelve la personalización de **posición** sin tocar nada en Drift, y elimina toda pregunta sobre qué hace Drift con un clip más chico que el lienzo.
+
+---
+
+# Adenda T4 — causa raíz: Drift 0.6.0 no soporta canal alpha
+
+**Fecha:** 2026-09-25 · **Turno:** T4
+
+## El dato que cerró el diagnóstico
+
+El fundador reportó tres cosas:
+
+1. El negro **cubría todo**, sin transparencia alguna.
+2. Con el archivo A (banda de 1920×320), el negro era **una franja** del alto del clip, no todo el proyecto.
+3. **B y C también cubren la pantalla de negro** en modo Normal.
+
+Eso mató las dos hipótesis de una:
+
+- **No es un problema de formato.** ProRes 4444 falla igual que WebM/VP9.
+- **No es relleno por diferencia de tamaño.** El negro cubre exactamente el rectángulo del clip: franja cuando el clip es una franja, pantalla completa cuando el clip es de pantalla completa.
+- **No es premultiplicación** (la pista que quedaba anotada). Con alpha recto mal interpretado se verían bordes sucios, no opacidad total.
+
+El negro es **nuestro fondo transparente con el alpha descartado**: transparente es RGB(0,0,0) con alpha 0, y si se tira el alpha queda negro sólido.
+
+## Lo que faltaba verificar, y debí verificar primero: la versión
+
+El clon de referencia es `main`, que es **0.7.0 en desarrollo**. `CHANGELOG.md` declara: *"Last released version: `0.6.0`"*. Y el `drift.exe` instalado es del **2026-09-13**, anterior al clon.
+
+**Estuve razonando sobre código que no está en el build del fundador.**
+
+Verificación directa contra el binario:
+
+| Cadena buscada en `drift.exe` | Resultado |
+|---|---|
+| `vp9_alpha` (preset de exportación con alpha) | **ausente** |
+| `prores_4444` (el otro preset con alpha) | **ausente** |
+| `Clips with transparency can't use a proxy` | **ausente** |
+
+Y el **control de método**, para que la ausencia signifique algo:
+
+| Cadena de control | Resultado |
+|---|---|
+| `dnxhr_10`, `h265_10` (vecinos en la **misma** tabla de presets) | presentes |
+| `libx264`, `libvpx-vp9`, `dnxhr`, `theora`, `vp9`, `prores` | presentes |
+
+La búsqueda ASCII detecta lo que existe, así que la ausencia de los dos presets con alpha es real y no un artefacto de codificación de cadenas.
+
+> **Conclusión: el soporte de canal alpha se agregó a Drift después de 0.6.0.** Existe en `main` (0.7.0, sin publicar). La versión instalada no lo tiene.
+
+**Lección:** verificar la versión instalada contra la rama que se está leyendo, **antes** de razonar sobre el código. Tres turnos de diagnóstico apuntaban a la causa equivocada por no haber hecho ese chequeo de un minuto.
+
+---
+
+## Qué ofrece 0.6.0, y las dos rutas que funcionan
+
+Inventario de la versión instalada:
+
+- **Modos de fusión**: Screen (Trama), Multiply, Overlay, Lighten, Darken, Add — presentes en el binario.
+- **Efecto `key.chroma` (Chroma Key)**, instalado en `effects/chroma_key`. Recorta **por tono** (0–360°), con Tolerance, Edge Softness y Spill Removal.
+
+**Detalle que condiciona el diseño: el negro no tiene tono**, así que el Chroma Key no puede recortar un fondo negro. Para esa ruta el fondo tiene que ser un color.
+
+### Las dos rutas
+
+| | Fondo negro + fusión Trama | Fondo de color + Chroma Key |
+|---|---|---|
+| Pasos en Drift | Un menú | Agregar efecto y ajustar 2–4 parámetros |
+| Funciona sobre fondo claro | ❌ se lava | ✅ |
+| Altera colores | ✅ aclara | ❌ |
+| Riesgo de bordes sucios | ninguno | sí, se ajusta |
+| Tamaño (16 s, 1920×1080) | 5,5 MB | 3,2 MB |
+
+![Trama arriba, Chroma Key abajo](evidencia/T4_trama_vs_chromakey.png)
+
+Prácticamente indistinguibles cuando la onda está sobre una zona oscura. Son simulaciones con FFmpeg, no capturas de Drift.
+
+### El premio inesperado: pesa menos de la mitad
+
+| Fondo | Tamaño (16 s, 1920×1080) | Por canción de 3 min |
+|---|---|---|
+| Canal alpha (`yuva420p`) | 11,7 MB | ~130 MB |
+| **Negro (`yuv420p`)** | **5,5 MB** | **~62 MB** |
+| **Color (`yuv420p`)** | **3,2 MB** | **~36 MB** |
+
+Sin canal alpha, VP9 comprime mucho mejor. **La ruta que funciona en la versión del fundador es además la más liviana**, así que la deuda de peso baja bastante.
+
+---
+
+## Un error propio, y cómo se detectó
+
+La primera simulación del modo Trama devolvió un cuadro magenta absurdo, y **sospeché del archivo antes que de mi medición**. Inspeccionando píxeles, los archivos estaban perfectos: D con fondo RGB(0,0,0) y onda RGB(0,227,253), E con fondo RGB(254,0,253).
+
+La falla era que `blend=all_mode=screen` recibía un input en RGB y otro en YUV; ffmpeg convertía todo a YUV, y aplicar "screen" a los **planos de croma** produce colores sin sentido. Corregido forzando `format=gbrp` en ambos inputs antes de mezclar.
+
+Es la **segunda vez** en el proyecto que el instrumento de medición falla antes que lo medido — la primera fue el `-ss` antes de `showwaves` en T3. Las dos veces se detectó igual: **porque el resultado no tenía sentido físico**, no porque algo fallara ruidosamente.

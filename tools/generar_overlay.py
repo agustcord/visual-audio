@@ -58,12 +58,30 @@ RE_COLOR = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
 #
 # Si Drift los exporta, los sabe leer. Generamos los mismos dos y nada más.
 FORMATOS = {
-    "webm": "VP9 con alpha en WebM. Liviano. Es el que Drift exporta como 'vp9_alpha'",
-    "mov": "ProRes 4444 en MOV. Sin pérdida y mucho más pesado, pero es el camino de "
-           "alpha más robusto de Drift: lo detecta por el formato de píxel Y por una "
-           "rama dedicada al codec",
+    "webm": "VP9 en WebM. Liviano. Con alpha es el que Drift exporta como 'vp9_alpha'",
+    "mov": "ProRes 4444 en MOV. Sin pérdida y ~10x más pesado. Sólo tiene sentido con "
+           "--fondo transparente",
 }
 EXTENSION = {"webm": ".webm", "mov": ".mov"}
+
+# Cómo se entrega el fondo del overlay. **La elección depende de la versión de Drift.**
+#
+# Drift 0.6.0 (la última publicada al 2026-09-25) **no soporta video con canal alpha**:
+# verificado por ausencia de los presets `vp9_alpha` y `prores_4444` en su binario,
+# mientras sus vecinos de tabla `dnxhr_10` y `h265_10` sí están. El soporte existe en
+# la rama de desarrollo (0.7.0, sin publicar).
+#
+# Así que hay tres maneras de entregar el fondo, y dos funcionan hoy:
+FONDOS = {
+    "transparente": "canal alpha real. **Necesita Drift 0.7.0 o superior.** En 0.6.0 el "
+                    "alpha se descarta y el clip se compone como un rectángulo negro",
+    "negro": "fondo negro sólido, para componer con el modo de fusión Trama (Screen) o "
+             "Añadir. Funciona en 0.6.0. El negro no aporta nada en esos modos, así que "
+             "desaparece; a cambio el modo aclara, y sobre fondos claros se nota",
+    "color": "fondo de un color sólido, para recortarlo con el efecto Chroma Key de Drift. "
+             "Funciona en 0.6.0 y da transparencia de verdad con fusión Normal. Usá "
+             "--color-fondo para elegirlo; conviene un tono lejano al de la onda",
+}
 
 
 class ErrorDeGeneracion(Exception):
@@ -128,7 +146,7 @@ def sondear_audio(ffprobe: str, ruta: Path) -> dict:
 # Construcción del comando
 # --------------------------------------------------------------------------- #
 
-def argumentos_de_codec(formato: str, crf: int, cpu_used: int) -> list[str]:
+def argumentos_de_codec(formato: str, con_alpha: bool, crf: int, cpu_used: int) -> list[str]:
     """Los argumentos de codificación de cada formato, calcados de lo que hace Drift.
 
     **`-auto-alt-ref 0` en VP9 no es una optimización, es obligatorio.** El propio
@@ -143,22 +161,23 @@ def argumentos_de_codec(formato: str, crf: int, cpu_used: int) -> list[str]:
     reproducción completa muestra fondo negro — y fue exactamente lo que pasó.
     """
     if formato == "webm":
-        return [
+        args = [
             "-c:v", "libvpx-vp9",
-            "-pix_fmt", "yuva420p",
+            "-pix_fmt", "yuva420p" if con_alpha else "yuv420p",
             "-b:v", "0", "-crf", str(crf),
             "-row-mt", "1",
             "-deadline", "good", "-cpu-used", str(cpu_used),
-            "-auto-alt-ref", "0",
-            "-lag-in-frames", "0",   # sin lag no hay ventana para que aparezcan alt-refs
         ]
+        if con_alpha:
+            args += ["-auto-alt-ref", "0", "-lag-in-frames", "0"]
+        return args
     # ProRes 4444: sin pérdida, sin parámetro de calidad. `-vendor apl0` se marca
     # como Apple, que es lo que espera cualquier lector de ProRes.
     return [
         "-c:v", "prores_ks",
-        "-profile:v", "4444",
-        "-pix_fmt", "yuva444p10le",
-        "-alpha_bits", "16",
+        "-profile:v", "4444" if con_alpha else "3",
+        "-pix_fmt", "yuva444p10le" if con_alpha else "yuv422p10le",
+        *(["-alpha_bits", "16"] if con_alpha else []),
         "-vendor", "apl0",
     ]
 
@@ -167,6 +186,7 @@ def construir_comando(
     ffmpeg: str, audio: Path, salida: Path, *,
     duracion: float, ancho: int, alto: int, fps: int, color: str,
     modo: str, escala: str, trazo: str, formato: str,
+    fondo: str, color_fondo: str,
     lienzo: tuple[int, int] | None, pad_x: int, pad_y: int,
     crf: int, cpu_used: int, sobrescribir: bool,
 ) -> list[str]:
@@ -210,18 +230,6 @@ def construir_comando(
         f"colors={color}"
     )
 
-    # Con `--lienzo`, la banda de onda se sitúa dentro de un cuadro del tamaño del
-    # proyecto y el resto queda **transparente de verdad** (`0x00000000`, verificado:
-    # la zona rellenada mide alpha 0 exacto, mínimo y máximo).
-    #
-    # Sirve para dos cosas. La obvia: resuelve la personalización de *posición* sin
-    # tocar nada en Drift. La menos obvia: elimina toda pregunta sobre qué hace Drift
-    # con un clip más chico que el lienzo — si el clip ya viene del tamaño exacto, no
-    # hay escalado ni relleno que pueda meter negro donde no lo queremos.
-    if lienzo:
-        lienzo_w, lienzo_h = lienzo
-        filtro += f",pad={lienzo_w}:{lienzo_h}:{pad_x}:{pad_y}:color=0x00000000"
-
     # `setpts=PTS-STARTPTS` corrige un corrimiento de sincronía, no es cosmético.
     #
     # Medido: `showwaves` entrega los 480 cuadros que corresponden a 16 s a 30 fps,
@@ -236,7 +244,30 @@ def construir_comando(
     # Rebasar los timestamps arregla las dos de una.
     filtro += ",setpts=PTS-STARTPTS"
 
-    filtro += "[salida]"
+    cuadro_w, cuadro_h = lienzo if lienzo else (ancho, alto)
+
+    if fondo == "transparente":
+        # Con `--lienzo`, la banda se sitúa en un cuadro del tamaño del proyecto y el
+        # resto queda **transparente de verdad** (verificado: la zona rellenada mide
+        # alpha 0 exacto, mínimo y máximo). Resuelve la personalización de *posición*
+        # sin tocar Drift, y elimina toda pregunta sobre qué hace Drift con un clip
+        # más chico que el lienzo.
+        if lienzo:
+            filtro += f",pad={cuadro_w}:{cuadro_h}:{pad_x}:{pad_y}:color=0x00000000"
+        filtro += "[salida]"
+    else:
+        # Fondo sólido: la onda se aplasta sobre un color plano, y el recorte lo hace
+        # Drift (con fusión Trama si el fondo es negro, o con Chroma Key si es un
+        # color). Es lo que hay que usar en Drift 0.6.0, que no soporta alpha.
+        #
+        # La fuente `color` lleva `d=` **obligatorio**: sin eso es infinita y
+        # `-shortest` NO la corta cuando la salida sale de un `filter_complex`. Medido:
+        # generó 21 MB de un audio de 16 s antes de que lo matáramos a mano.
+        relleno = "black" if fondo == "negro" else color_fondo
+        filtro += "[onda];"
+        filtro += (f"color=c={relleno}:s={cuadro_w}x{cuadro_h}:r={fps}"
+                   f":d={duracion + 1.0:.6f}[fondo];")
+        filtro += f"[fondo][onda]overlay={pad_x}:{pad_y}:format=auto[salida]"
 
     return [
         ffmpeg,
@@ -245,7 +276,7 @@ def construir_comando(
         "-i", str(audio),
         "-filter_complex", filtro,
         "-map", "[salida]",
-        *argumentos_de_codec(formato, crf, cpu_used),
+        *argumentos_de_codec(formato, fondo == "transparente", crf, cpu_used),
         "-an",
         "-t", f"{duracion:.6f}",
         str(salida),
@@ -321,7 +352,44 @@ def auditar_alpha_completo(ffmpeg: str, salida: Path, formato: str,
     }
 
 
-def verificar_salida(ffmpeg: str, ffprobe: str, salida: Path, formato: str,
+def medir_contraste(ffmpeg: str, salida: Path, fps: int,
+                    muestra_w: int = 160, muestra_h: int = 90) -> dict | None:
+    """Para overlays de fondo sólido: mide si hay dibujo sobre el fondo.
+
+    Sin canal alpha no se puede auditar transparencia, así que la comprobación
+    equivalente es que el cuadro **no sea todo del mismo color**: si la onda no se
+    dibujó, el cuadro entero es fondo plano y el overlay no sirve para nada.
+
+    Devuelve la cantidad de cuadros planos (sin dibujo) y el rango de luminancia.
+    """
+    cmd = [
+        ffmpeg, "-hide_banner", "-loglevel", "error", "-nostdin",
+        "-i", str(salida),
+        "-vf", f"scale={muestra_w}:{muestra_h},format=gray",
+        "-f", "rawvideo", "-pix_fmt", "gray", "-",
+    ]
+    res = subprocess.run(cmd, capture_output=True)
+    if res.returncode != 0 or not res.stdout:
+        return None
+
+    por_cuadro = muestra_w * muestra_h
+    d = res.stdout
+    n = len(d) // por_cuadro
+    if n == 0:
+        return None
+
+    planos = 0
+    rango_max = 0
+    for i in range(n):
+        f = d[i * por_cuadro:(i + 1) * por_cuadro]
+        rango = max(f) - min(f)
+        rango_max = max(rango_max, rango)
+        if rango < 8:
+            planos += 1
+    return {"cuadros": n, "planos": planos, "rango_max": rango_max}
+
+
+def verificar_salida(ffmpeg: str, ffprobe: str, salida: Path, formato: str, fondo: str,
                      duracion_audio: float, fps: int) -> list[tuple[bool, str]]:
     """Comprueba los criterios PoC-1..PoC-3 de docs/PLAN_ETAPA1.md."""
     resultados: list[tuple[bool, str]] = []
@@ -354,6 +422,26 @@ def verificar_salida(ffmpeg: str, ffprobe: str, salida: Path, formato: str,
 
     v = streams[0]
     pix_fmt = v.get("pix_fmt", "?")
+
+    # ---- Fondo sólido: no hay alpha que auditar, se mide que haya dibujo ----
+    if fondo != "transparente":
+        auditoria = None
+        contraste = medir_contraste(ffmpeg, salida, fps)
+        if contraste is None:
+            resultados.append((False, "PoC-2  no se pudo decodificar el video"))
+        else:
+            n, planos = contraste["cuadros"], contraste["planos"]
+            etiqueta = ("negro (componer con fusión Trama o Añadir)" if fondo == "negro"
+                        else "de color (recortar con Chroma Key)")
+            resultados.append((
+                planos < n,
+                f"PoC-2  fondo {etiqueta}; hay dibujo en {n - planos}/{n} cuadros "
+                f"(contraste máximo {contraste['rango_max']}/255)"
+                + (f"\n         nota: {planos} cuadros planos, sin dibujo "
+                   f"(pasajes silenciosos — esperado)" if planos else ""),
+            ))
+            auditoria = {"cuadros": n}
+        return resultados + _verificar_duracion(datos, auditoria, duracion_audio, fps)
 
     # ---- PoC-2a: la marca de alpha, según cómo la declara cada formato ----
     #
@@ -397,41 +485,45 @@ def verificar_salida(ffmpeg: str, ffprobe: str, salida: Path, formato: str,
                     f"(pasajes silenciosos — esperado, no es falla)")
         resultados.append((ok, msg))
 
-    # ---- PoC-3: duración, contada por cuadros y no por lo que declara el contenedor ----
-    #
-    # La duración del contenedor **miente**. Un WebM al que le faltaban 3 cuadros
-    # declaraba igual 16.000 s y la comprobación pasaba con 0.0 ms de desvío; el mismo
-    # contenido en MOV declaraba los 15.900 s reales y reprobaba. El dato honesto es la
-    # cantidad de cuadros que realmente se decodifican, que la auditoría de alpha ya
-    # cuenta de paso.
+    return resultados + _verificar_duracion(datos, auditoria, duracion_audio, fps)
+
+
+def _verificar_duracion(datos: dict, auditoria: dict | None,
+                        duracion_audio: float, fps: int) -> list[tuple[bool, str]]:
+    """PoC-3: duración, contada por cuadros y no por lo que declara el contenedor.
+
+    **La duración del contenedor miente.** Un WebM al que le faltaban 3 cuadros
+    declaraba igual 16.000 s y esta comprobación pasaba con 0.0 ms de desvío; el
+    mismo contenido en MOV declaraba los 15.900 s reales y reprobaba. El dato
+    honesto es cuántos cuadros se decodifican de verdad, que las auditorías de
+    arriba ya cuentan de paso.
+    """
     dur_declarada = float((datos.get("format") or {}).get("duration") or 0.0)
     tolerancia = 1.0 / fps
 
-    if auditoria is not None:
-        cuadros = auditoria["cuadros"]
-        dur_real = cuadros / fps
-        esperados = round(duracion_audio * fps)
-        delta = abs(dur_real - duracion_audio)
-        nota = ""
-        if abs(dur_declarada - dur_real) > tolerancia / 2:
-            nota = (f"\n         (el contenedor declara {dur_declarada:.3f}s; "
-                    f"manda el conteo de cuadros)")
-        resultados.append((
-            delta <= tolerancia,
-            f"PoC-3  {cuadros} cuadros decodificados de {esperados} esperados "
-            f"= {dur_real:.3f}s vs audio {duracion_audio:.3f}s "
-            f"(desvío {delta * 1000:.1f} ms, tolerancia {tolerancia * 1000:.1f} ms){nota}",
-        ))
-    else:
+    if auditoria is None:
         delta = abs(dur_declarada - duracion_audio)
-        resultados.append((
+        return [(
             delta <= tolerancia,
             f"PoC-3  duración declarada {dur_declarada:.3f}s vs audio "
             f"{duracion_audio:.3f}s (desvío {delta * 1000:.1f} ms) "
             f"— no se pudieron contar los cuadros, dato menos confiable",
-        ))
+        )]
 
-    return resultados
+    cuadros = auditoria["cuadros"]
+    dur_real = cuadros / fps
+    esperados = round(duracion_audio * fps)
+    delta = abs(dur_real - duracion_audio)
+    nota = ""
+    if abs(dur_declarada - dur_real) > tolerancia / 2:
+        nota = (f"\n         (el contenedor declara {dur_declarada:.3f}s; "
+                f"manda el conteo de cuadros)")
+    return [(
+        delta <= tolerancia,
+        f"PoC-3  {cuadros} cuadros decodificados de {esperados} esperados "
+        f"= {dur_real:.3f}s vs audio {duracion_audio:.3f}s "
+        f"(desvío {delta * 1000:.1f} ms, tolerancia {tolerancia * 1000:.1f} ms){nota}",
+    )]
 
 
 # --------------------------------------------------------------------------- #
@@ -527,6 +619,14 @@ def construir_parser() -> argparse.ArgumentParser:
                         "grandes casi no se ve")
 
     g2 = p.add_argument_group("codificación")
+    g2.add_argument("--fondo", choices=sorted(FONDOS), default="negro",
+                    help="cómo se entrega el fondo (default: negro, que es lo que funciona "
+                         "en Drift 0.6.0). " +
+                         "; ".join(f"{k}: {v}" for k, v in FONDOS.items()))
+    g2.add_argument("--color-fondo", type=tipo_color, default="#00FF00", metavar="COLOR",
+                    help="color del fondo cuando --fondo color (default: #00FF00, verde). "
+                         "Elegí un tono lejano al de la onda para que el Chroma Key no se "
+                         "coma parte del dibujo")
     g2.add_argument("--formato", choices=sorted(FORMATOS), default="webm",
                     help="formato de salida (default: webm). " +
                          "; ".join(f"{k}: {v}" for k, v in FORMATOS.items()))
@@ -587,6 +687,7 @@ def main(argv: list[str] | None = None) -> int:
             duracion=info["duracion"],
             ancho=args.ancho, alto=args.alto, fps=args.fps, color=args.color,
             modo=args.modo, escala=args.escala, trazo=args.trazo, formato=args.formato,
+            fondo=args.fondo, color_fondo=args.color_fondo,
             lienzo=args.lienzo, pad_x=pad_x, pad_y=pad_y,
             crf=args.crf, cpu_used=args.cpu_used,
             sobrescribir=not args.no_sobrescribir,
@@ -606,9 +707,15 @@ def main(argv: list[str] | None = None) -> int:
             print(f"overlay : {args.ancho}x{args.alto} (sólo la banda, sin lienzo)")
         print(f"estilo  : {args.fps}fps, modo={args.modo}, escala={args.escala}, "
               f"trazo={args.trazo}, color={args.color}")
-        print(f"formato : {args.formato}"
-              + (f" (VP9 alpha, crf {args.crf})" if args.formato == "webm"
-                 else " (ProRes 4444, sin pérdida)"))
+        if args.fondo == "transparente":
+            desc_fondo = "canal alpha (necesita Drift 0.7.0+)"
+        elif args.fondo == "negro":
+            desc_fondo = "negro sólido — componer con fusión Trama (Screen) o Añadir"
+        else:
+            desc_fondo = f"{args.color_fondo} sólido — recortar con el efecto Chroma Key"
+        print(f"fondo   : {desc_fondo}")
+        print(f"formato : {args.formato} ({'ProRes 4444' if args.formato == 'mov' else 'VP9'}"
+              + (f", crf {args.crf}" if args.formato == "webm" else ", sin pérdida") + ")")
         print(f"salida  : {salida}")
         print("generando…")
 
@@ -626,7 +733,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         print("\nverificación:")
-        resultados = verificar_salida(ffmpeg, ffprobe, salida, args.formato,
+        resultados = verificar_salida(ffmpeg, ffprobe, salida, args.formato, args.fondo,
                                       info["duracion"], args.fps)
         for ok, texto in resultados:
             print(f"  {'OK  ' if ok else 'FALLA'}  {texto}")

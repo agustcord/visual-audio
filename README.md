@@ -8,19 +8,19 @@ Proyecto de **Jonatan Córdoba**, usuario externo de Drift — **no forma parte 
 
 ## Estado
 
-**Etapa 1, turno 2 cerrado. Camino A aprobado. El generador de overlay funciona.**
+**Etapa 1, turno 4. El generador funciona y hay dos rutas verificadas para componerlo en Drift.**
 
-Los tres criterios del PoC que se pueden medir sin Drift están verificados. Los tres que faltan requieren **Drift abierto**, y ese es el próximo turno.
-
-El estado vivo y el próximo paso concreto están en **[`RETOMAR.md`](RETOMAR.md)**. Si sos un agente que retoma este proyecto, **empezá por ahí.**
+El estado vivo y el próximo paso están en **[`RETOMAR.md`](RETOMAR.md)**. Si sos un agente que retoma este proyecto, **empezá por ahí.**
 
 ### Probarlo
 
 ```powershell
-python tools\generar_overlay.py tests\fixtures\pista_prueba.wav -o build\onda.webm --color "#00E5FF"
+python tools\generar_overlay.py tests\fixtures\pista_prueba.wav -o build\onda.webm --lienzo 1920x1080
 ```
 
-Produce un WebM con canal alpha que se importa a Drift y se pone en una pista por encima del video.
+Después, en Drift: importar, poner en una pista por encima del video, y modo de fusión **Trama**. Los detalles y la alternativa con Chroma Key están en [`docs/COMO_USAR.md`](docs/COMO_USAR.md).
+
+> **Ojo con la versión de Drift.** La 0.6.0 (la publicada) **no soporta video con canal alpha**: descarta el alpha y compone el clip como un rectángulo negro. Por eso la transparencia la resuelve Drift con un modo de fusión o con el efecto Chroma Key, en vez de venir en el archivo. Cuando salga 0.7.0 alcanzará con `--fondo transparente`, que ya está implementado.
 
 ---
 
@@ -28,6 +28,7 @@ Produce un WebM con canal alpha que se importa a Drift y se pone en una pista po
 
 | Si querés… | Leé |
 |---|---|
+| **Usarlo** | [`docs/COMO_USAR.md`](docs/COMO_USAR.md) — guía paso a paso |
 | Entender el propósito y la autoridad del proyecto | [`sobre_este_plugins.txt`](sobre_este_plugins.txt) — documento fundacional, firmado |
 | Saber dónde retomar el trabajo | [`RETOMAR.md`](RETOMAR.md) |
 | Saber si esto es técnicamente posible y por qué | [`docs/VIABILIDAD.md`](docs/VIABILIDAD.md) |
