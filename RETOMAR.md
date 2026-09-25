@@ -6,7 +6,33 @@
 
 ---
 
-## 🟡 Estado: causa raíz encontrada. Dos rutas que funcionan, esperando que el fundador las pruebe.
+## 🔴 Estado (T6): MVP definido. **No construir hasta que el fundador apruebe.**
+
+El fundador pidió **un freno** para definir el MVP antes de gastar turnos, y tenía razón: al definirlo, el presupuesto pasó de 6 turnos a **10**.
+
+**Lo primero que tiene que hacer el próximo agente:** ver si el fundador respondió las **cinco preguntas de [`docs/MVP.md`](docs/MVP.md) §9**. Construir antes de eso sería exactamente lo que él quiso evitar.
+
+Las preguntas, resumidas:
+
+1. ¿Los tres estilos son los correctos? (barras, barras espejadas, onda — circular afuera)
+2. ¿Falta o sobra algún valor de los ~25?
+3. **¿Aprueba los 10 turnos**, llevando la Etapa 1 a 16 contra los 10–14 del Gate?
+4. ¿Confirma la lista de lo que el MVP **no** hace?
+5. **Dato faltante:** ¿a qué resolución y fps trabaja en Drift? Se asumió 1920×1080 a 30
+
+### Dos cosas ya decididas por él, para no reabrirlas
+
+- **La PoC está aprobada** por ambos.
+- **Motor de dibujo propio**, no los filtros de FFmpeg.
+- **Criterio que ordena todo el MVP:** *"el MVP no debe contener programación para el usuario final"*. Eso implica interfaz gráfica, y **contradice el §3 de `PLAN_ETAPA1.md`**, que decía "sin interfaz gráfica". Se resuelve a favor de lo que dijo ahora: `docs/MVP.md` reemplaza ese §3.
+
+### Cuando apruebe, el orden es
+
+Las siete etapas de `docs/MVP.md` §8. La primera es el análisis de audio a bandas por cuadro, y la segunda el motor de dibujo con el estilo Barras. **Punto de control tras la etapa 2** (4 turnos): el fundador ve barras reales sobre su video antes de gastar los 3 turnos de interfaz.
+
+---
+
+## Estado anterior (T4): las dos rutas de composición en Drift
 
 **Drift 0.6.0 no soporta video con canal alpha.** Es la versión publicada y la que tiene instalada el fundador. El soporte existe en la rama de desarrollo de Drift (0.7.0, sin publicar).
 

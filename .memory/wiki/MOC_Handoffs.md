@@ -26,6 +26,8 @@ relacionado: ["index"]
 | T2 | [[T2_gate_audio_y_poc_20260925]] | 2026-09-25 | Gate del fundador registrado (camino A), audio de prueba del proyecto, generador de overlay con PoC-1..3 verificados |
 | T3 | [[T3_poc5_fallo_y_sincronia_20260925]] | 2026-09-25 | **PoC-5 falló** (Drift no honró el alpha). Tres hipótesis descartadas con evidencia, experimento de tres brazos preparado, desincronización de 100 ms encontrada y corregida, verificación reescrita |
 | T4 | [[T4_causa_raiz_version_20260925]] | 2026-09-25 | **Causa raíz: Drift 0.6.0 no soporta canal alpha** (el soporte está en 0.7.0 sin publicar). Dos rutas que funcionan con herramientas propias de Drift, y el archivo pesa menos de la mitad |
+| T5 | — *(sin handoff propio; su registro vive en `docs/DECISION_MOTOR_DE_DIBUJO.md` y en la bitácora)* | 2026-09-25 | Cuatro preguntas del fundador respondidas; PoC-5 reinterpretada (falló la redacción, no el objetivo); decisión del motor de dibujo propio planteada con evidencia comparada |
+| T6 | [[T6_definicion_mvp_20260925]] | 2026-09-25 | Investigación de siete herramientas del mercado y **definición del MVP**: tres estilos, ~25 valores, interfaz de escritorio, nueve criterios falsables. Presupuesto honesto de 10 turnos, pendiente de aprobación |
 
 ## Qué debe contener un handoff
 
