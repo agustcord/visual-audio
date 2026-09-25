@@ -1,0 +1,60 @@
+# --- Código de referencia de terceros ---
+# Clon de sólo-lectura del editor Drift (GPLv3, CutWire Studios). No es nuestro
+# código y tiene su propio historial git: se reconstruye con el comando
+# documentado en docs/INVESTIGACION_VIABILIDAD.md, no se versiona acá.
+_reference/
+
+# --- Artefactos de build y renders de prueba ---
+build/
+dist/
+out/
+*.mp4
+*.webm
+*.mov
+*.mkv
+*.wav
+*.mp3
+*.flac
+*.ogg
+# Excepción: material de prueba chico y deliberado, si algún día lo hubiera
+!tests/fixtures/**
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Node ---
+node_modules/
+npm-debug.log*
+
+# --- Sistema operativo y editores ---
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+*.swp
+*~
+
+# --- Secretos ---
+# El token de MCP de Drift rota por sesión y no debe quedar en el historial.
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+secrets.json
+mcp-token*
+
+# --- Scratch de la bóveda de memoria ---
+# Los handoffs y la wiki SÍ se versionan (son el registro del proyecto).
+# El scratch es material desechable de cada turno.
+.memory/scratch/

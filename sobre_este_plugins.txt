@@ -1,0 +1,21 @@
+Editor sobre el cual crear el plugin:
+Drift.
+
+Drift es un editor de code abierto disponible desde github en el siguiente repositorio: https://github.com/CutWire-Studios/Drift
+
+
+El plugin a crear es "visualizador de audio" (nombre a revisar), el pluging debe permitir visualizar las ondas de audios o spetro del audio que selecione, para agregarlo en el editor de video, si bien cada uno puede darle el proposito que desee, a nivel general se usara para editar videos musicales y agregarle ese movimiento visual para poder seguir la pista de la música que se reproduce. 
+
+La prueba de concepto solo buscara capturar el audio y poder expresar su movimiento de forma rudimentaria, para el MVP se si se buscará poder capturarlo de una forma agredable y que permita realizar alguna pequeñas personalizaciones a esa onda de audio (velocidad, tamañao, posicion, color y opacidad), para futuro se busca que se pueda elegir distintas personalizaciones o suficiente libertad para que el usuario pueda personalizarlo.
+
+En esta primer etapa para comenzar, se debe registrar este proyecto mediante obsidian en .memory. Una vez hecho se debe definir como se va a realizar la siguiente investigación ¿es posible crear esto para el editor drift? De confirmarse la viabilidad se debe definir presupuesto (tiempo/turnos) y alcances concretos para esta primer etapa. Luego si comenzar con la parte de desarrolla. El primer agente en llevar esta primer etapa sera el agente que trabaja en Kiro, pero luego sera trabajado por un número diverso de agente, por ende debe dejar la documentación donde este aclaro alcance, planes, handoff, donde retomar y etc para que cada agente pueda continuar con el trabaja sin repetir pasos o destruir lo realizado (salvo que sea una decisión conciente pero no un error).
+
+También cuando se inicie el proyecto debe iniciarse un archivo git para proteccion del mismo.
+
+El propio agente debe preguntar si tiene dudas, o en su defecto comenzar con el proyecto.
+
+-Firmado y redactor por Jonatan Córdoba (humano fundador). 
+
+Aclaración: el programa se encuentra instalado en C:\Program Files\Drift
+
+Segunda aclaración: Yo no formo parte del equipo de Drift, solo soy un usuario que quiere desarrollar un plugin para editar su videos musicales. 
