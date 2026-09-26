@@ -6,9 +6,32 @@
 
 ---
 
-## 🟢 Estado: etapa 1 cerrada. **Siguiente: etapa 2, motor de dibujo y Barras.**
+## 🚦 Estado: etapas 1 y 2 cerradas. **El proyecto está en el punto de control del fundador.**
 
-El análisis de audio funciona y sus cinco criterios pasan: 36 comprobaciones en verde con `python tests\test_analisis.py`.
+El motor funciona de punta a punta: análisis, dibujo, y export en los tres modos de fondo. Dos estilos andando (Barras y Espejadas). **55 comprobaciones automáticas en verde** entre `test_analisis.py`, `test_render.py` y `verificar_sincronia.py`.
+
+### Lo primero que tiene que hacer el próximo agente
+
+**Ver si el fundador ya respondió el punto de control.** No es un turno de trabajo, es una decisión suya, y está ahí a propósito: **antes** de los tres turnos de interfaz, porque corregir el aspecto ahora es barato y después de construir los controles no.
+
+Material que se le dejó:
+- `docs/evidencia/T9_estilo_barras_cuatro_looks.png` — cuatro configuraciones sobre el mismo fondo
+- `build/PUNTO_CONTROL_trama.webm` — para componer con fusión Trama
+- `build/PUNTO_CONTROL_chromakey.webm` — para recortar con Chroma Key
+
+**Si el aspecto no convence, no se avanza a la etapa 3**: se corrige en la 2.
+Si aprueba, sigue la **etapa 3: estilo Onda** (un turno; Espejadas ya se entregó).
+
+### Probarlo ahora mismo
+
+```powershell
+cd tools
+python -m visualizador.cli ..\tests\fixtures\pista_espectro.wav -o ..\build\prueba.webm ^
+    --resplandor 0.6 --tapas-pico --reflejo 0.4
+
+python -m visualizador.cli ..\tests\fixtures\pista_espectro.wav --cuadro 430 -o ..\build\vista.png
+python -m visualizador.cli --listar
+```
 
 ### Tu punto de entrada es la ruta, no este archivo
 
@@ -75,11 +98,27 @@ Y siempre con un **control**: buscá también algo que sí deba estar. Los ids d
 
 | | Qué | Dónde |
 |---|---|---|
-| ✅ | Audio de prueba determinista, con estructura conocida para medir | `tests/fixtures/pista_prueba.wav` |
-| ✅ | Generador de la PoC, tres modos de fondo, se autoverifica | `tools/generar_overlay.py` |
-| ✅ | Prueba de regresión de sincronía | `tests/verificar_sincronia.py` |
-| ✅ | Guía de uso para el fundador | `docs/COMO_USAR.md` |
-| ⬜ | El producto del MVP | `tools/visualizador/` — **por crear, etapa 1** |
+| ✅ | Dos pistas de prueba deterministas: una para ritmo, otra con **espectro completo** | `tests/fixtures/` |
+| ✅ | **Análisis de audio**: bandas logarítmicas, amplitud y forma de onda | `tools/visualizador/analisis.py` |
+| ✅ | **Esquema de parámetros**, del que se construyen todos los clientes | `tools/visualizador/parametros.py` |
+| ✅ | **Estilos Barras y Espejadas** | `tools/visualizador/estilos/` |
+| ✅ | **Motor de render** con `cuadro(i)` — el mismo para vista previa y export | `tools/visualizador/render.py` |
+| ✅ | **Salida** en los tres modos de fondo | `tools/visualizador/salida.py` |
+| ✅ | **Línea de comandos**, generada desde el esquema | `tools/visualizador/cli.py` |
+| ✅ | Tres pruebas automáticas, 55 comprobaciones | `tests/` |
+| ✅ | Generador de la PoC, sigue funcionando como modo rápido | `tools/generar_overlay.py` |
+| ✅ | Guía de uso — **describe la PoC; hay que reescribirla en la etapa 6** | `docs/COMO_USAR.md` |
+| ⬜ | Estilo Onda | etapa 3 |
+| ⬜ | Proyectos y presets | etapa 4 |
+| ⬜ | Interfaz gráfica | etapa 5 |
+
+### Las tres pruebas
+
+```powershell
+python tests\test_analisis.py                    # 36 comprobaciones
+python tests\test_render.py --export             # 19 comprobaciones
+python tests\verificar_sincronia.py --motor propio
+```
 
 `tools/generar_overlay.py` **no se borra.** Funciona, está verificado, y sus parámetros de codificación son la referencia de los tres modos de fondo — incluido el `-auto-alt-ref 0` que Drift documenta como obligatorio para VP9 con alpha.
 

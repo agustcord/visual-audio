@@ -30,6 +30,7 @@ relacionado: ["index"]
 | T6 | [[T6_definicion_mvp_20260925]] | 2026-09-25 | Investigación de siete herramientas del mercado y **definición del MVP**: tres estilos, ~25 valores, interfaz de escritorio, nueve criterios falsables. Presupuesto honesto de 10 turnos, pendiente de aprobación |
 | T7 | [[T7_gate2_y_ruta_de_trabajo_20260925]] | 2026-09-25 | **Gate 2**: MVP, presupuesto y resolución aprobados. Creadas la **ruta de trabajo** (siete etapas con criterios verificables, quince reglas, punto de control del fundador) y la **arquitectura** (seis contratos). El punto de entrada del proyecto pasó a ser la ruta |
 | T8 | [[T8_etapa1_analisis_20260925]] | 2026-09-25 | **Etapa 1 cerrada: el análisis de audio.** 36 comprobaciones en verde. La medición del criterio 1.4 encontró un error de diseño real (densidad en vez de energía: los graves tapaban hasta 1182x y el espectro quedaba vacío arriba de 519 Hz). Ventana causal con desvío 0. Rendimiento de 14,4 s a 1,3 s |
+| T9 | [[T9_etapa2_motor_y_barras_20260925]] | 2026-09-25 | **Etapa 2 cerrada en 1 de 2 turnos: motor de dibujo y Barras** (más Espejadas, que salió gratis). 19 comprobaciones en verde. Default de curva cambiado a `log` con evidencia. Rendimiento de 545 s a 250 s tras perfilar. El proyecto queda en el **punto de control del fundador** |
 
 ## Qué debe contener un handoff
 

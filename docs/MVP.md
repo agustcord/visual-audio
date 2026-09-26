@@ -87,7 +87,16 @@ Están agrupados por lo que hacen, que es también como irían en la interfaz.
 | **Sensibilidad** | 0.5 – 10 | 3.0 | Cuánto salta el dibujo con el sonido. El que más cambia el carácter |
 | **Suavizado** | 0 – 1 | 0.65 | 0 = nervioso y exacto; 1 = fluido y perezoso |
 | **Rango de frecuencias** | 20 Hz – 20 kHz | 40 – 14000 | Qué parte del espectro se dibuja. Recortar los extremos suele mejorar mucho |
-| **Curva de respuesta** | lineal / raíz / log | raíz | Cuánto se levantan los pasajes suaves |
+| **Curva de respuesta** | lineal / raíz / log | **log** | Cuánto se levantan los pasajes suaves |
+
+> **Corrección del default, hecha en la etapa 2 con la evidencia a la vista.** Este
+> documento decía `raiz`, elegido antes de poder ver un cuadro dibujado. Con las
+> barras andando se midió que **`raiz` deja planos los dos tercios derechos del
+> espectro**: la música tiene los graves 10 a 20 veces más fuertes que los agudos, y
+> la raíz no comprime lo suficiente. Con `log` el dibujo se llena de punta a punta
+> **y el pasaje silencioso sigue leyéndose como silencio** — se verificó lo segundo
+> a propósito, porque una compresión fuerte puede inflar el ruido de fondo hasta que
+> parezca que suena. Evidencia: `docs/evidencia/T9_curvas_de_respuesta.png`.
 | **Caída de picos** | 0 – 1 | 0.4 | Qué tan rápido baja el dibujo después de un golpe |
 
 Rangos de sensibilidad y suavizado tomados de las convenciones relevadas (Banger.show publica 0.5–10 para intensidad; audiospectr usa 0.65 de suavizado por defecto).

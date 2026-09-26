@@ -37,15 +37,20 @@ Es la **ruta ejecutable** del MVP. Cada etapa dice qué necesita para empezar, q
 | — | Investigación y definición del MVP | 1 | ✅ cerrada | T6 |
 | — | Gate 2 y ruta de trabajo | 1 | ✅ cerrada | T7 |
 | **1** | **Análisis de audio** | 1 | ✅ **cerrada** | T8 |
-| **2** | **Motor de dibujo y estilo Barras** | 2 | ⬜ **SIGUIENTE** | — |
-| **G** | **🚦 Punto de control del fundador** | — | ⬜ | — |
-| **3** | **Estilos Onda y Barras espejadas** | 1 | ⬜ | — |
+| **2** | **Motor de dibujo y estilo Barras** | 2 → **1** | ✅ **cerrada** | T9 |
+| **G** | **🚦 Punto de control del fundador** | — | ⬜ **ACÁ ESTAMOS** | — |
+| **3** | **Estilo Onda** *(Espejadas ya entregado en la 2)* | 1 | ⬜ | — |
 | **4** | **Proyectos y presets** | 1 | ⬜ | — |
 | **5** | **Interfaz gráfica** | 3 | ⬜ | — |
 | **6** | **Integración y documentación** | 1 | ⬜ | — |
 | **7** | **Validación con el fundador** | 1 | ⬜ | — |
 
-**Consumido: 8 turnos. Restante del MVP: 9. Total Etapa 1: 17.**
+**Consumido: 9 turnos. Restante del MVP: 7. Total Etapa 1 proyectado: 16.**
+
+> La etapa 2 estaba presupuestada en 2 turnos y se cerró en **1**, así que el total
+> bajó de 17 a 16. Además **`Espejadas` se entregó en la etapa 2** en vez de la 3:
+> resultó una subclase de una línea de `Barras` — mismo dibujo con otro eje. La
+> etapa 3 queda reducida al estilo Onda.
 
 > Nota sobre el número: el Gate 2 aprobó "10 turnos de MVP, Etapa 1 a 16" contando 6 turnos consumidos. Este turno (T7) es el séptimo, así que el total honesto es **17**. La diferencia es un turno de documentación que el fundador pidió expresamente; se registra en vez de disimularse.
 
