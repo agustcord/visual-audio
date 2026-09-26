@@ -170,7 +170,7 @@ Registrado por el agente Kiro en el turno **T2**, el **2026-09-25**. Se registra
 |---|---|---|
 | 1 — Camino técnico | ✅ | **Camino A.** B fuera del alcance (ver la corrección de premisa abajo). C a futuro, **compromiso nulo con terceros**. |
 | 2 — Modelo overlay pre-renderizado | ✅ | Aceptado implícitamente al aprobar el plan y elegir A: es el modelo que A implica, y el fundador lo tenía descrito con su costo antes de decidir. |
-| 3 — Presupuesto en turnos | ✅ | Aprobado, 10–14 turnos (§4). |
+| 3 — Presupuesto en turnos | ✅ | Aprobado, 10–14 turnos (§4). **Superseded por el Gate 2 — ver §10.** |
 
 ### Corrección de premisa, declarada y no silenciada
 
@@ -201,3 +201,50 @@ Si el fundador quiere revisar esta lectura, el punto a reabrir es §1 Decisión 
 A pedido del fundador, el proyecto tiene su propio archivo de audio de prueba. Está en `tests/fixtures/`, es **sintético y reproducible** (lo genera un script del repositorio, no es material con derechos), y está construido a propósito con transientes marcados para que la forma de onda y la detección de onsets tengan algo visible que mostrar.
 
 Detalle y comando de regeneración en `tests/fixtures/README.md`.
+
+---
+
+## 10. Gate 2 — el MVP y la ampliación del presupuesto
+
+Registrado por el agente Kiro en el turno **T7**, el **2026-09-25**. Como procedencia, no como veredicto propio.
+
+### Texto del fundador, verbatim
+
+Turno T5, sobre el motor de dibujo:
+
+> «Vamos con motor propio. Acepto más turno.»
+
+Turno T6, pidiendo el freno para definir el MVP:
+
+> «Pero hagamos un freno, ayudame a definir ¿que debería tener un MVP? PoC ambos estamos de acuerdo y la damos por aprobada. […] porque eso 6 turnos pueden quedarse corto o peor aún, usarse y darnos cuenta que no era lo que realmente queriamos. […] Entiendo que el MVP no debe contener programación para el usuario final»
+
+Turno T7, aprobando la definición:
+
+> «Sobre el dato. Si drift permite trabajar con otras configuraciones, pero mi estandar suele ser ese mismo que menciona. Apruebo todo lo que menciona, pero antes de seguir, en caso que no este aún, debe haber un mapa/ruta de trabajo para que cualquier agente pueda retomar además de vos»
+
+### Qué quedó resuelto
+
+| Decisión | Resuelta | Contenido |
+|---|---|---|
+| **Motor de dibujo** | ✅ | **Propio**, no los filtros de FFmpeg. `docs/DECISION_MOTOR_DE_DIBUJO.md` |
+| **PoC** | ✅ | **Aprobada por ambos.** No se reabre |
+| **Definición del MVP** | ✅ | `docs/MVP.md` completo: tres estilos, ~25 valores, interfaz de escritorio, nueve criterios |
+| **Sin programación para el usuario final** | ✅ | Criterio del fundador. **Implica interfaz gráfica** |
+| **Presupuesto** | ✅ | **10 turnos para el MVP, Etapa 1 a 16 en total.** Aprobado el exceso sobre los 10–14 del Gate 1 |
+| **Resolución y cuadros por segundo** | ✅ | **1920×1080 a 30** como estándar del fundador y default de la herramienta. Drift admite otras y la herramienta también debe admitirlas |
+| **Estilos** | ✅ | Barras, barras espejadas, onda. Circular afuera del MVP, primer candidato a agregarse después |
+| **Lo que el MVP no hace** | ✅ | Confirmada la lista de `MVP.md` §6 |
+| **Ruta de trabajo para cualquier agente** | ✅ | Pedido explícito del fundador. Entregado: `docs/RUTA_DE_TRABAJO.md` y `docs/ARQUITECTURA.md` |
+
+### Consecuencia sobre este documento
+
+**El §3 de este plan (alcance del MVP) queda superseded por `docs/MVP.md`.** No se borra, para que el registro de lo que se pensaba antes quede disponible, pero **no gobierna**.
+
+**El §4 (presupuesto) queda actualizado:** el MVP pasa de 4 turnos a 10, y la Etapa 1 de 10–14 a **16 turnos**. El desglose de los 10 está en `MVP.md` §8 y la ruta ejecutable en `docs/RUTA_DE_TRABAJO.md`.
+
+### Lo que este Gate NO autoriza
+
+- Forkear o compilar Drift, ni contactar a CutWire Studios. **El compromiso nulo con terceros del Gate 1 sigue vigente.**
+- Activar el servidor MCP de Drift sin pedírselo antes al fundador.
+- Escribir en `C:\Program Files\Drift\`.
+- Agregar dependencias de Python nuevas sin declararlo: el MVP se construye con `numpy`, `Pillow` y `tkinter`, que ya están en la máquina. Cualquier cosa más allá de eso es una decisión a consultar, porque el fundador eligió esta ruta justamente por liviana.

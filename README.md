@@ -28,11 +28,14 @@ Después, en Drift: importar, poner en una pista por encima del video, y modo de
 
 | Si querés… | Leé |
 |---|---|
+| **Trabajar en el proyecto (cualquier agente)** | **[`docs/RUTA_DE_TRABAJO.md`](docs/RUTA_DE_TRABAJO.md)** — la ruta, los criterios y las reglas |
 | **Usarlo** | [`docs/COMO_USAR.md`](docs/COMO_USAR.md) — guía paso a paso |
 | Entender el propósito y la autoridad del proyecto | [`sobre_este_plugins.txt`](sobre_este_plugins.txt) — documento fundacional, firmado |
 | Saber dónde retomar el trabajo | [`RETOMAR.md`](RETOMAR.md) |
+| Saber qué hace el MVP y con qué criterios se aprueba | [`docs/MVP.md`](docs/MVP.md) |
+| **Escribir código**: contratos y estructura | [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md) |
 | Saber si esto es técnicamente posible y por qué | [`docs/VIABILIDAD.md`](docs/VIABILIDAD.md) |
-| Ver el alcance, el presupuesto y las decisiones del fundador | [`docs/PLAN_ETAPA1.md`](docs/PLAN_ETAPA1.md) |
+| Ver el alcance, el presupuesto y las decisiones del fundador | [`docs/PLAN_ETAPA1.md`](docs/PLAN_ETAPA1.md) — los dos Gates, verbatim |
 | Ver qué mide el PoC y qué salió mal en el camino | [`docs/POC_RESULTADOS.md`](docs/POC_RESULTADOS.md) |
 | Entender el audio de prueba | [`tests/fixtures/README.md`](tests/fixtures/README.md) |
 | Navegar la memoria técnica completa | [`.memory/index.md`](.memory/index.md) |
@@ -83,18 +86,24 @@ Razonamiento completo con citas por archivo y línea en [`docs/VIABILIDAD.md`](d
 
 ---
 
-## Reglas para agentes
+## Si sos un agente que retoma este proyecto
 
-Este proyecto lo trabajan varios agentes distintos. Estas reglas existen para que nadie repita pasos ni destruya trabajo hecho:
+**Tu punto de entrada es [`docs/RUTA_DE_TRABAJO.md`](docs/RUTA_DE_TRABAJO.md).** Tiene la tabla de estado, las siete etapas con criterios de entrada y salida, y las quince reglas de trabajo. Está escrita para que puedas ubicarte y ejecutar sin haber estado en las conversaciones anteriores.
 
-1. **Leé [`RETOMAR.md`](RETOMAR.md) antes de actuar.** Dice qué está hecho, qué no, y qué sigue.
-2. **Leé `.memory/wiki/Audio_reactividad_en_Drift.md` antes de proponer arquitectura.** Sin eso vas a diseñar algo que no se puede construir.
-3. **Dejá un handoff** en `.memory/handoffs/` y una entrada en `.memory/log.md` al terminar tu turno. El formato está en `.memory/wiki/MOC_Handoffs.md`.
-4. **`log.md` es append-only.** Las entradas fechadas no se editan ni se reordenan.
-5. **`C:\Program Files\Drift\` es de sólo lectura.** Los paquetes propios van a `%APPDATA%\CutWire Drift\`, nunca a la instalación.
-6. **`_reference/drift-src/` no se edita ni se versiona.** Es código GPLv3 de terceros; se reconstruye con el comando documentado en el handoff T1.
-7. **Declará tu frontera:** qué tocaste y, explícitamente, qué no. Es lo que le permite al siguiente confiar en el terreno.
-8. **No revivas una decisión cerrada sin declararlo.** Si la revertís, la nota vieja se marca `superseded` con el motivo; no se borra.
+El orden corto:
+
+1. **[`docs/RUTA_DE_TRABAJO.md`](docs/RUTA_DE_TRABAJO.md)** — dónde estamos y qué sigue.
+2. **[`RETOMAR.md`](RETOMAR.md)** — estado vivo y, sobre todo, **las trampas ya pagadas**. Cada una costó un error real.
+3. **[`docs/MVP.md`](docs/MVP.md)** — qué hace el MVP y con qué criterios se aprueba.
+4. **[`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md)** — antes de escribir una línea de código.
+
+Las reglas completas están en la ruta (§3). Las cinco que más importan:
+
+- **Ningún criterio se declara cumplido sin el comando que lo prueba.** Si no lo pudiste medir, decilo.
+- **Medí sobre todo el material, no sobre muestras**, y contra algo conocido del audio — no contra lo que el archivo dice de sí mismo.
+- **Si un resultado no tiene sentido físico, sospechá del instrumento antes que de lo medido.** Pasó dos veces y las dos el instrumento era el roto.
+- **Declará tu frontera:** qué tocaste y, explícitamente, qué no.
+- **`C:\Program Files\Drift\` es de sólo lectura**, y `_reference/drift-src/` no se edita ni se versiona.
 
 ---
 

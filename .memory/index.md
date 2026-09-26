@@ -9,6 +9,7 @@ creado: 2026-09-25
 
 Esta carpeta es la **memoria técnica del proyecto**, y este archivo es su **documento principal**: no reporta el avance, **estructura la documentación** y dice dónde vive cada cosa.
 
+- **Si venís a trabajar (persona o agente):** el punto de entrada **no es la bóveda**, es `docs/RUTA_DE_TRABAJO.md`, que tiene la tabla de estado, las etapas con sus criterios y las reglas. Esta bóveda es el registro histórico y las notas de dominio.
 - **Si sos una persona:** los enlaces de la tabla son clicables en Obsidian. Orden de lectura sugerido: este índice → `RETOMAR.md` (fuera de la bóveda) → `docs/VIABILIDAD.md` → `docs/PLAN_ETAPA1.md`.
 - **Si sos un agente:** extraé el bloque delimitado `INDICE-MAQUINA` y leé la tercera columna: cada fila trae la **ruta absoluta**, lista para abrir. No hace falta interpretar prosa.
 - **El avance no se declara acá.** Una cifra tipeada envejece en silencio. El estado vive en `RETOMAR.md` y en la bitácora.
@@ -36,6 +37,8 @@ Las notas se alcanzan por su MOC de dominio, así que este índice no engorda cu
 | Documento principal de la bóveda | [[index]] | `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\.memory\index.md` |
 | Bitácora de la bóveda (append-only) | [[log]] | `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\.memory\log.md` |
 | Índice del registro de handoffs | [[MOC_Handoffs]] | `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\.memory\wiki\MOC_Handoffs.md` |
+| **Ruta de trabajo — punto de entrada de cualquier agente** | — | `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\docs\RUTA_DE_TRABAJO.md` |
+| Arquitectura del código (fuera de la bóveda) | — | `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\docs\ARQUITECTURA.md` |
 | Generador de overlay (fuera de la bóveda) | — | `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\tools\generar_overlay.py` |
 | Audio de prueba del proyecto (fuera de la bóveda) | — | `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\tests\fixtures\pista_prueba.wav` |
 | Resultados del PoC (fuera de la bóveda) | — | `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\docs\POC_RESULTADOS.md` |
