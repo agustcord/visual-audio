@@ -33,6 +33,7 @@ relacionado: ["index"]
 | T9 | [[T9_etapa2_motor_y_barras_20260925]] | 2026-09-25 | **Etapa 2 cerrada en 1 de 2 turnos: motor de dibujo y Barras** (más Espejadas, que salió gratis). 19 comprobaciones en verde. Default de curva cambiado a `log` con evidencia. Rendimiento de 545 s a 250 s tras perfilar. El proyecto queda en el **punto de control del fundador** |
 | T10 | [[T10_gate_aspecto_y_color_20260925]] | 2026-09-25 | **Punto de control aprobado**: aspecto y parámetros conformes, **Trama** elegida y Chroma Key descartado. El corrimiento de color de Trama medido en ΔE76 sobre 30 combinaciones: el fondo pasa **exacto**, el blanco es exacto en todo metraje, y la compensación da ΔE 0.0 sobre metraje oscuro. Se resolvió la disyuntiva 0.6 vs 0.7 sin elegir. Pendiente derivado `compensar_fondo` a la etapa 4. **Sin código de producto** |
 | T11 | [[T11_como_se_abre_la_herramienta_20260925]] | 2026-09-25 | **Cómo se lanza la herramienta**, que era un punto ciego: el MVP prometía "sin programación" y no decía cómo se abre. **`.bat` en el MVP** (etapa 6, criterios 6.4 y 6.5, con `pythonw.exe` verificado en disco), **`.exe` post-MVP**, y **distribuir a terceros fuera de objetivos** como regla 16 nueva. Sin código |
+| T12 | [[plan_triage_drift_plugins_20260926]] | 2026-09-26 | **Triage de Fase 1 Core**: Estado actual del proyecto verificado factual (55/55 pruebas en verde, rama master limpia), plan estructurado de la Etapa 3 (Estilo Onda) y preparación para Gate del Capitán. Sin código |
 
 ## Qué debe contener un handoff
 
