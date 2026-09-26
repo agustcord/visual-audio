@@ -27,6 +27,7 @@ El documento fundacional, firmado por Jonatan Córdoba, es `sobre_este_plugins.t
 - **[[Extensibilidad_de_Drift]]** — los cuatro mecanismos de extensión reales y sus límites. **Léelo antes de proponer cualquier arquitectura.**
 - **[[Audio_reactividad_en_Drift]]** — cómo Drift convierte audio en movimiento hoy, y el bloqueo central que condiciona todo el proyecto.
 - **[[Caminos_de_implementacion]]** — las tres rutas candidatas, con su costo y su techo.
+- **[[Composicion_de_overlays_en_Drift]]** — los siete modos de fusión con su matemática, y por qué Trama reemplaza al canal alpha. **Léelo antes de tocar color o modos de fondo.**
 - **[[Investigacion_visualizadores]]** — qué ofrecen las siete herramientas del mercado relevadas: estilos, parámetros con rangos, y por qué no usamos ninguna. **Es la base del MVP.**
 
 Las notas se alcanzan por su MOC de dominio, así que este índice no engorda cuando aparecen notas nuevas.
@@ -47,6 +48,8 @@ Las notas se alcanzan por su MOC de dominio, así que este índice no engorda cu
 | Nota: extensibilidad de Drift | [[Extensibilidad_de_Drift]] | `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\.memory\wiki\Extensibilidad_de_Drift.md` |
 | Nota: audio-reactividad en Drift | [[Audio_reactividad_en_Drift]] | `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\.memory\wiki\Audio_reactividad_en_Drift.md` |
 | Nota: caminos de implementación | [[Caminos_de_implementacion]] | `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\.memory\wiki\Caminos_de_implementacion.md` |
+| Nota: composición de overlays en Drift | [[Composicion_de_overlays_en_Drift]] | `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\.memory\wiki\Composicion_de_overlays_en_Drift.md` |
+| Color y fusión Trama, medido (fuera de la bóveda) | — | `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\docs\COLOR_EN_TRAMA.md` |
 | Nota: investigación de visualizadores | [[Investigacion_visualizadores]] | `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\.memory\wiki\Investigacion_visualizadores.md` |
 | Definición del MVP (fuera de la bóveda) | — | `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\docs\MVP.md` |
 | Documento fundacional (fuera de la bóveda) | — | `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\sobre_este_plugins.txt` |

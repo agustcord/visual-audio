@@ -31,6 +31,7 @@ relacionado: ["index"]
 | T7 | [[T7_gate2_y_ruta_de_trabajo_20260925]] | 2026-09-25 | **Gate 2**: MVP, presupuesto y resolución aprobados. Creadas la **ruta de trabajo** (siete etapas con criterios verificables, quince reglas, punto de control del fundador) y la **arquitectura** (seis contratos). El punto de entrada del proyecto pasó a ser la ruta |
 | T8 | [[T8_etapa1_analisis_20260925]] | 2026-09-25 | **Etapa 1 cerrada: el análisis de audio.** 36 comprobaciones en verde. La medición del criterio 1.4 encontró un error de diseño real (densidad en vez de energía: los graves tapaban hasta 1182x y el espectro quedaba vacío arriba de 519 Hz). Ventana causal con desvío 0. Rendimiento de 14,4 s a 1,3 s |
 | T9 | [[T9_etapa2_motor_y_barras_20260925]] | 2026-09-25 | **Etapa 2 cerrada en 1 de 2 turnos: motor de dibujo y Barras** (más Espejadas, que salió gratis). 19 comprobaciones en verde. Default de curva cambiado a `log` con evidencia. Rendimiento de 545 s a 250 s tras perfilar. El proyecto queda en el **punto de control del fundador** |
+| T10 | [[T10_gate_aspecto_y_color_20260925]] | 2026-09-25 | **Punto de control aprobado**: aspecto y parámetros conformes, **Trama** elegida y Chroma Key descartado. El corrimiento de color de Trama medido en ΔE76 sobre 30 combinaciones: el fondo pasa **exacto**, el blanco es exacto en todo metraje, y la compensación da ΔE 0.0 sobre metraje oscuro. Se resolvió la disyuntiva 0.6 vs 0.7 sin elegir. Pendiente derivado `compensar_fondo` a la etapa 4. **Sin código de producto** |
 
 ## Qué debe contener un handoff
 

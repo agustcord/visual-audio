@@ -38,14 +38,18 @@ Es la **ruta ejecutable** del MVP. Cada etapa dice qué necesita para empezar, q
 | — | Gate 2 y ruta de trabajo | 1 | ✅ cerrada | T7 |
 | **1** | **Análisis de audio** | 1 | ✅ **cerrada** | T8 |
 | **2** | **Motor de dibujo y estilo Barras** | 2 → **1** | ✅ **cerrada** | T9 |
-| **G** | **🚦 Punto de control del fundador** | — | ⬜ **ACÁ ESTAMOS** | — |
-| **3** | **Estilo Onda** *(Espejadas ya entregado en la 2)* | 1 | ⬜ | — |
-| **4** | **Proyectos y presets** | 1 | ⬜ | — |
+| **G** | **🚦 Punto de control del fundador** | — | ✅ **aprobado** | T10 |
+| **3** | **Estilo Onda** *(Espejadas ya entregado en la 2)* | 1 | ⬜ **ACÁ ESTAMOS** | — |
+| **4** | **Proyectos y presets** *(+ `compensar_fondo`)* | 1 | ⬜ | — |
 | **5** | **Interfaz gráfica** | 3 | ⬜ | — |
 | **6** | **Integración y documentación** | 1 | ⬜ | — |
 | **7** | **Validación con el fundador** | 1 | ⬜ | — |
 
-**Consumido: 9 turnos. Restante del MVP: 7. Total Etapa 1 proyectado: 16.**
+**Consumido: 10 turnos. Restante del MVP: 7. Total Etapa 1 proyectado: 17.**
+
+> T10 no estaba presupuestado: fue el turno del punto de control, donde el fundador
+> aprobó el aspecto y planteó la pregunta del color. Se gastó en medirla y
+> documentarla (`docs/COLOR_EN_TRAMA.md`), no en código de producto. Se cuenta igual.
 
 > La etapa 2 estaba presupuestada en 2 turnos y se cerró en **1**, así que el total
 > bajó de 17 a 16. Además **`Espejadas` se entregó en la etapa 2** en vez de la 3:
@@ -70,6 +74,7 @@ Leelos en este orden si estás llegando ahora:
 | [`PLAN_ETAPA1.md`](PLAN_ETAPA1.md) §7 y §10 | Los dos Gates, verbatim: qué autorizó el fundador | Ante cualquier duda de alcance |
 | [`VIABILIDAD.md`](VIABILIDAD.md) | Por qué el visualizador no puede ser un efecto de Drift | Si vas a proponer arquitectura |
 | [`POC_RESULTADOS.md`](POC_RESULTADOS.md) | Mediciones y los errores ya cometidos | Antes de medir algo |
+| [`COLOR_EN_TRAMA.md`](COLOR_EN_TRAMA.md) | Qué conserva y qué corre la fusión Trama, medido | **Antes de tocar color o modos de fondo** |
 | [`COMO_USAR.md`](COMO_USAR.md) | Guía del fundador. **Hay que mantenerla al día** | Al cambiar algo que se use |
 | [`.memory/wiki/`](../.memory/wiki/) | Notas de dominio con evidencia citada | Según el tema |
 
@@ -199,17 +204,23 @@ El agente le presenta al fundador:
 
 ---
 
-### Etapa 3 — Estilos Onda y Barras espejadas
+### Etapa 3 — Estilo Onda
 
-**1 turno.** Dos estilos que son funciones de dibujo, no arquitectura nueva.
+**1 turno.** Un estilo es una función de dibujo, no arquitectura nueva.
 
-**Precondiciones:** etapa 2 cerrada y **punto de control aprobado**.
+**Precondiciones:** etapa 2 cerrada y **punto de control aprobado** — ✅ las dos, en T9 y T10.
+
+> **Espejadas ya se entregó en la etapa 2**, no acá: resultó una subclase de una
+> línea de `Barras` (`centrado=True`), mismo dibujo con otro eje. Esta etapa quedó
+> reducida a Onda, que sí es un dibujo distinto: una línea continua sobre la forma
+> de onda, no barras sobre el espectro.
 
 **Tareas**
-- `estilos/espejadas.py`: barras simétricas desde el centro.
 - `estilos/onda.py`: línea de amplitud con grosor y relleno opcional.
-- Registrar los dos en `estilos/__init__.py`.
-- Declarar en el esquema qué valor aplica a qué estilo.
+- Registrarlo en `estilos/__init__.py`.
+- Declarar en el esquema qué valor aplica a qué estilo. Los de barras
+  (`n_barras`, `separacion`, `tapas_pico`) no aplican a Onda, y `grosor_linea` y
+  `relleno` sólo aplican ahí. El mecanismo ya existe: `depende_de` en el esquema.
 
 **Criterios de salida**
 
@@ -217,14 +228,14 @@ El agente le presenta al fundador:
 |---|---|---|
 | 3.1 | Los tres estilos exportan sin error | comando |
 | 3.2 | **Cambiar de estilo con los mismos valores no desincroniza** | `verificar_sincronia.py` con los tres (es el MVP-3) |
-| 3.3 | El barrido de parámetros pasa en los tres | prueba automática |
+| 3.3 | El barrido de parámetros pasa en los tres | `test_render.py`, ya recorre `disponibles()` |
 | 3.4 | Un valor que no aplica a un estilo se ignora o falla claro, nunca a medias | prueba automática |
 
 ---
 
-### Etapa 4 — Proyectos y presets
+### Etapa 4 — Proyectos, presets y compensación de color
 
-**1 turno.** Guardar y reabrir, más presets de fábrica.
+**1 turno.** Guardar y reabrir, presets de fábrica, y el parámetro que sale de T10.
 
 **Precondiciones:** etapa 3 cerrada.
 
@@ -232,6 +243,13 @@ El agente le presenta al fundador:
 - `proyecto.py`: guardar y abrir, con campo `version`.
 - Guardar preset (aspecto sin audio) y aplicarlo.
 - Tres o cuatro presets de fábrica en `presets/`, uno por estilo como mínimo.
+  Uno de ellos **con barras blancas**: es el único color que Trama no corre sobre
+  ningún metraje (medido en `docs/COLOR_EN_TRAMA.md` §2), así que es la salida
+  segura para quien no quiere pensar en esto.
+- **Parámetro `compensar_fondo`** (pendiente derivado del punto de control, T10).
+  Ver `docs/COLOR_EN_TRAMA.md` §6 para los tres requisitos y la fórmula ya medida.
+  Resumen: el usuario declara el color del video donde van las barras y el dibujo
+  se pre-oscurece con `src = 1 - (1-D)/(1-B)`. Default `#000000`, que es identidad.
 - Comandos de la línea de comandos para todo eso.
 
 **Criterios de salida**
@@ -242,6 +260,9 @@ El agente le presenta al fundador:
 | 4.2 | Un proyecto con un valor inválido o de versión desconocida **falla con un mensaje claro**, no a medias | prueba automática |
 | 4.3 | Los presets de fábrica cargan y exportan | comando |
 | 4.4 | Un proyecto cuyo audio se movió de lugar avisa qué falta | prueba automática |
+| 4.5 | `compensar_fondo` con el default **no cambia ni un píxel** respecto de hoy | comparación automática contra cuadros de referencia |
+| 4.6 | Compensado sobre fondo oscuro, el color compuesto da **ΔE < 1** contra el pedido | prueba automática, con la fórmula de Trama de `tools/medir_trama.py` |
+| 4.7 | Un color inalcanzable (`D < B` en algún canal) **avisa**, no recorta en silencio | prueba automática |
 
 ---
 

@@ -2,25 +2,29 @@
 
 **Documento vivo.** Cada agente lo actualiza al cerrar su turno. Si contradice a otro documento, gana la bitácora `.memory/log.md` — pero entonces alguien tiene que arreglar este archivo.
 
-**Última actualización:** 2026-09-25, turno T7, agente Kiro.
+**Última actualización:** 2026-09-25, turno T10, agente Kiro.
 
 ---
 
-## 🚦 Estado: etapas 1 y 2 cerradas. **El proyecto está en el punto de control del fundador.**
+## 🚦 Estado: etapas 1 y 2 cerradas, **punto de control aprobado**. Toca la etapa 3.
 
 El motor funciona de punta a punta: análisis, dibujo, y export en los tres modos de fondo. Dos estilos andando (Barras y Espejadas). **55 comprobaciones automáticas en verde** entre `test_analisis.py`, `test_render.py` y `verificar_sincronia.py`.
 
+### Lo que el fundador decidió en el punto de control (T10)
+
+| | |
+|---|---|
+| **Aspecto** | ✅ Aprobado. *"Sobre los estilos y variables, para esta primer version me parece bien"* |
+| **Composición** | **Trama.** Chroma Key descartado para esta versión: *"la funcion de chroma key no esta muy avanzada dentro de drift en esta version, es muy dificil ocultar"* |
+| **Color** | Planteó si apuntar a la 0.7 o aceptar una aproximación. Medido y respondido en [`docs/COLOR_EN_TRAMA.md`](docs/COLOR_EN_TRAMA.md) |
+
+**El modo `color` (Chroma Key) no se borra** — sigue implementado y verificado, y es la única salida si alguna vez hace falta componer en una herramienta sin modos de fusión. Pero deja de ser una ruta recomendada: la documentación y los presets apuntan a Trama.
+
 ### Lo primero que tiene que hacer el próximo agente
 
-**Ver si el fundador ya respondió el punto de control.** No es un turno de trabajo, es una decisión suya, y está ahí a propósito: **antes** de los tres turnos de interfaz, porque corregir el aspecto ahora es barato y después de construir los controles no.
+**Etapa 3: el estilo Onda.** Un turno. Las precondiciones están las dos cumplidas (etapa 2 cerrada en T9, punto de control aprobado en T10), así que se puede empezar directo.
 
-Material que se le dejó:
-- `docs/evidencia/T9_estilo_barras_cuatro_looks.png` — cuatro configuraciones sobre el mismo fondo
-- `build/PUNTO_CONTROL_trama.webm` — para componer con fusión Trama
-- `build/PUNTO_CONTROL_chromakey.webm` — para recortar con Chroma Key
-
-**Si el aspecto no convence, no se avanza a la etapa 3**: se corrige en la 2.
-Si aprueba, sigue la **etapa 3: estilo Onda** (un turno; Espejadas ya se entregó).
+⚠️ **Antes de tocar cualquier cosa de color o de modo de fondo, leé [`docs/COLOR_EN_TRAMA.md`](docs/COLOR_EN_TRAMA.md).** Tiene la fórmula de Trama leída del shader de Drift y medida, y evita rediscutir de memoria algo que ya tiene números.
 
 ### Probarlo ahora mismo
 
@@ -39,9 +43,9 @@ python -m visualizador.cli --listar
 
 Ahí está la tabla de estado, las siete etapas con sus criterios de entrada y salida, y las reglas de trabajo. Está escrita para que **cualquier agente** pueda ubicarse y ejecutar, no sólo el que estuvo en esta conversación.
 
-**Siguiente:** etapa 2, motor de dibujo y estilo Barras. Dos turnos, y es la etapa más grande. Al cerrarla hay un **punto de control del fundador**: ve barras reales sobre su video antes de que se gasten los tres turnos de interfaz.
+**Siguiente:** etapa 3, estilo Onda. Un turno.
 
-> ⚠️ **Antes de dibujar, leé el aviso de la etapa 2 en la ruta.** La pista de prueba no tiene ningún instrumento entre 500 Hz y 2 kHz, así que las barras del medio van a salir planas con ese material — y eso se lee como un defecto del dibujo cuando es del audio. La primera tarea de la etapa es agregar una pista con espectro completo.
+> ⚠️ **Medí siempre con `pista_espectro.wav`, no con `pista_prueba.wav`.** La segunda no tiene ningún instrumento entre 500 Hz y 2 kHz, así que las barras del medio salen planas con ese material — y eso se lee como un defecto del dibujo cuando es del audio. `pista_prueba.wav` sirve para ritmo y sincronía; `pista_espectro.wav`, para todo lo visual.
 
 ### Antes de escribir código, leé estos dos
 
@@ -61,6 +65,9 @@ Ahí está la tabla de estado, las siete etapas con sus criterios de entrada y s
 | **Forma del producto** | Herramienta externa; el archivo se importa a Drift |
 | **Sin programación para el usuario final** | Implica **interfaz gráfica**. Contradice el §3 de `PLAN_ETAPA1.md`, que queda superseded por `docs/MVP.md` |
 | **Estilos** | Barras, barras espejadas, onda. Circular afuera y **no prometido** |
+| **Aspecto del estilo Barras** | ✅ Aprobado en el punto de control (T10) |
+| **Composición en Drift** | **Trama.** Chroma Key descartado para esta versión por el fundador |
+| **Versión objetivo** | **0.6.0**, la única verificable. El modo `transparente` para 0.7 ya está construido, así que no hay que elegir. Razonamiento en `docs/COLOR_EN_TRAMA.md` §4 |
 | **Presupuesto** | 10 turnos de MVP. Etapa 1 a **17** en total |
 | **Estándar de proyecto** | **1920×1080 a 30 fps** como default. La herramienta debe admitir otros |
 | **Compromiso nulo con terceros** | No forkear Drift, no PR a upstream, no contactar a CutWire Studios |
@@ -133,6 +140,8 @@ python tests\verificar_sincronia.py --motor propio
 | **Color ~1.5% corrido** | `showwaves` devuelve G=225 cuando se pide G=229. **Desaparece con el motor propio**, que escribe los píxeles exactos |
 | **Cuantización de 1 cuadro** | La onda va 33 ms tarde a 30 fps. Correcto por construcción, no es bug |
 | **`--fondo transparente`** | Implementado y verificado, **inútil hasta Drift 0.7.0**. No lo borres |
+| **Trama aclara el color de las barras** | Estructural de la fusión, no un bug. Medido: ΔE 0–9 sobre metraje oscuro, hasta 84 sobre blanco. El blanco es exacto en todo metraje. Compensable con `compensar_fondo` (etapa 4). **Todo en `docs/COLOR_EN_TRAMA.md`** |
+| **Opacidad del clip en Drift ≠ atenuar** | `sa = src.a * u_opacity` mezcla las barras con el video en vez de atenuarlas. Para suavizar hay que usar el parámetro `opacidad` de la herramienta |
 
 ---
 
