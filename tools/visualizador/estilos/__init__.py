@@ -7,12 +7,14 @@ pruebas, porque todos consultan este registro.
 
 from .barras import Barras, Espejadas
 from .base import Caja, DatosCuadro, Estilo, disponibles, obtener, registrar
+from .onda import Onda
 
 registrar(Barras())
 registrar(Espejadas())
+registrar(Onda())
 
 __all__ = [
     "Caja", "DatosCuadro", "Estilo",
     "disponibles", "obtener", "registrar",
-    "Barras", "Espejadas",
+    "Barras", "Espejadas", "Onda",
 ]

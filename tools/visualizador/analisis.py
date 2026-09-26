@@ -464,19 +464,22 @@ def analizar(ruta_audio: Path, params: dict[str, Any] | None = None,
         )
 
     n_bandas = int(p.get("n_barras", 64))
-    bordes = _bordes_de_banda(n_bandas, float(p["frec_min"]), float(p["frec_max"]))
+    frec_min = float(p.get("frec_min", 40.0))
+    frec_max = float(p.get("frec_max", 14000.0))
+    caida_picos = float(p.get("caida_picos", 0.4))
+    bordes = _bordes_de_banda(n_bandas, frec_min, frec_max)
     matriz = _matriz_de_bandas(bordes)
 
     # --- bandas: espectro → curva → inercia en el tiempo → normalización ---
     potencia = _espectro_por_cuadro(muestras, _ventanas_causales(muestras, n_cuadros, fps), matriz)
     bandas = _curva(potencia, str(p["curva_respuesta"]))
-    bandas = _suavizar_en_tiempo(bandas, float(p["suavizado"]), float(p["caida_picos"]))
+    bandas = _suavizar_en_tiempo(bandas, float(p["suavizado"]), caida_picos)
     bandas = _normalizar(bandas, float(p["sensibilidad"]))
 
     # --- amplitud y forma de onda ---
     amplitud, onda = _amplitud_y_onda(muestras, n_cuadros, fps)
     amplitud = _curva(amplitud, str(p["curva_respuesta"]))
-    amplitud = _suavizar_en_tiempo(amplitud, float(p["suavizado"]), float(p["caida_picos"]))
+    amplitud = _suavizar_en_tiempo(amplitud, float(p["suavizado"]), caida_picos)
     amplitud = _normalizar(amplitud, float(p["sensibilidad"]))
 
     onda = _curva(onda, str(p["curva_respuesta"]))

@@ -162,6 +162,7 @@ ESQUEMA: dict[str, Valor] = {
     "caida_picos": Valor(
         etiqueta="Caída de picos",
         tipo=float, default=0.4, minimo=0.0, maximo=1.0, grupo="audio",
+        estilos=("barras", "espejadas"),
         ayuda="Cuánto MÁS lento baja que lo que sube. 0 baja igual de rápido que "
               "sube; 1 deja los picos colgados. Es lo que le da el aire de medidor "
               "de audio de verdad.",
@@ -178,12 +179,14 @@ ESQUEMA: dict[str, Valor] = {
     "frec_min": Valor(
         etiqueta="Frecuencia mínima",
         tipo=float, default=40.0, minimo=20.0, maximo=2000.0, grupo="audio", unidad="Hz",
+        estilos=("barras", "espejadas"),
         ayuda="Dónde empieza el espectro. Subirla a 60-80 Hz saca el retumbe que no "
               "aporta nada visual.",
     ),
     "frec_max": Valor(
         etiqueta="Frecuencia máxima",
         tipo=float, default=14000.0, minimo=1000.0, maximo=20000.0, grupo="audio", unidad="Hz",
+        estilos=("barras", "espejadas"),
         ayuda="Dónde termina. Bajarla a 10 kHz concentra el dibujo donde hay energía "
               "de verdad, porque arriba de eso casi siempre está vacío.",
     ),
@@ -209,6 +212,18 @@ ESQUEMA: dict[str, Valor] = {
         estilos=("barras", "espejadas"),
         ayuda="Del grosor de la barra. Con 50 la punta es un semicírculo perfecto; "
               "con 0 es un rectángulo con esquinas vivas.",
+    ),
+    "grosor_linea": Valor(
+        etiqueta="Grosor de línea",
+        tipo=int, default=4, minimo=1, maximo=20, grupo="forma", unidad="px",
+        estilos=("onda",),
+        ayuda="Espesor del trazo de la forma de onda en píxeles.",
+    ),
+    "relleno": Valor(
+        etiqueta="Relleno bajo la línea",
+        tipo=bool, default=False, grupo="forma",
+        estilos=("onda",),
+        ayuda="Si se rellena el cuerpo de la forma de onda o sólo se dibuja el contorno.",
     ),
 
     # ---- Posición y tamaño -------------------------------------------------
@@ -365,6 +380,8 @@ def validar(params: dict[str, Any], estilo: str | None = None,
                 f"Los válidos son: {', '.join(sorted(ESQUEMA))}"
             )
         if not definicion.aplica_a(estilo):
+            if permitir_desconocidos:
+                continue
             raise ErrorDeParametro(
                 f"'{nombre}' no aplica al estilo '{estilo}' "
                 f"(sólo a {', '.join(definicion.estilos)})"

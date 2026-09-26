@@ -119,6 +119,7 @@ def perfil_del_motor_propio(audio: Path, fps: int, estilo: str) -> list[float]:
         # Sin inercia ni adornos: se mide la alineación cruda, no la del suavizado.
         "suavizado": 0.0, "caida_picos": 0.0, "resplandor": 0.0, "reflejo": 0.0,
         "tapas_pico": False,
+        "relleno": True,
     }
     render = Render(analizar(audio, p, estilo), estilo, p)
     perfil = []

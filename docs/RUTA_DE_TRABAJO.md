@@ -39,13 +39,13 @@ Es la **ruta ejecutable** del MVP. Cada etapa dice qué necesita para empezar, q
 | **1** | **Análisis de audio** | 1 | ✅ **cerrada** | T8 |
 | **2** | **Motor de dibujo y estilo Barras** | 2 → **1** | ✅ **cerrada** | T9 |
 | **G** | **🚦 Punto de control del fundador** | — | ✅ **aprobado** | T10 |
-| **3** | **Estilo Onda** *(Espejadas ya entregado en la 2)* | 1 | ⬜ **ACÁ ESTAMOS** | — |
-| **4** | **Proyectos y presets** *(+ `compensar_fondo`)* | 1 | ⬜ | — |
+| **3** | **Estilo Onda** *(Espejadas ya entregado en la 2)* | 1 | ✅ **cerrada** | T13 |
+| **4** | **Proyectos y presets** *(+ `compensar_fondo`)* | 1 | ⬜ **ACÁ ESTAMOS** | — |
 | **5** | **Interfaz gráfica** | 3 | ⬜ | — |
 | **6** | **Integración y documentación** | 1 | ⬜ | — |
 | **7** | **Validación con el fundador** | 1 | ⬜ | — |
 
-**Consumido: 10 turnos. Restante del MVP: 7. Total Etapa 1 proyectado: 17.**
+**Consumido: 12 turnos (incluyendo T10 y T12). Restante del MVP: 5. Total Etapa 1 proyectado: 17.**
 
 > T10 no estaba presupuestado: fue el turno del punto de control, donde el fundador
 > aprobó el aspecto y planteó la pregunta del color. Se gastó en medirla y

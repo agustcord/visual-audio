@@ -2,13 +2,13 @@
 
 **Documento vivo.** Cada agente lo actualiza al cerrar su turno. Si contradice a otro documento, gana la bitácora `.memory/log.md` — pero entonces alguien tiene que arreglar este archivo.
 
-**Última actualización:** 2026-09-25, turno T10, agente Kiro.
+**Última actualización:** 2026-09-26, turno T13, agente Ani Programadora.
 
 ---
 
-## 🚦 Estado: etapas 1 y 2 cerradas, **punto de control aprobado**. Toca la etapa 3.
+## 🚦 Estado: etapas 1, 2 y 3 cerradas. Toca la etapa 4 (Proyectos y presets).
 
-El motor funciona de punta a punta: análisis, dibujo, y export en los tres modos de fondo. Dos estilos andando (Barras y Espejadas). **55 comprobaciones automáticas en verde** entre `test_analisis.py`, `test_render.py` y `verificar_sincronia.py`.
+El motor funciona de punta a punta: análisis, dibujo, y export en los tres modos de fondo. Tres estilos andando (Barras, Espejadas y Onda). **75 comprobaciones automáticas en verde** entre `test_analisis.py`, `test_render.py` y `verificar_sincronia.py`.
 
 ### Lo que el fundador decidió en el punto de control (T10)
 
@@ -22,7 +22,7 @@ El motor funciona de punta a punta: análisis, dibujo, y export en los tres modo
 
 ### Lo primero que tiene que hacer el próximo agente
 
-**Etapa 3: el estilo Onda.** Un turno. Las precondiciones están las dos cumplidas (etapa 2 cerrada en T9, punto de control aprobado en T10), así que se puede empezar directo.
+**Etapa 4: Proyectos y presets (+ `compensar_fondo`).** Un turno. Las precondiciones están cumplidas (etapas 1 a 3 cerradas).
 
 ⚠️ **Antes de tocar cualquier cosa de color o de modo de fondo, leé [`docs/COLOR_EN_TRAMA.md`](docs/COLOR_EN_TRAMA.md).** Tiene la fórmula de Trama leída del shader de Drift y medida, y evita rediscutir de memoria algo que ya tiene números.
 
@@ -114,10 +114,10 @@ Y siempre con un **control**: buscá también algo que sí deba estar. Los ids d
 | ✅ | **Motor de render** con `cuadro(i)` — el mismo para vista previa y export | `tools/visualizador/render.py` |
 | ✅ | **Salida** en los tres modos de fondo | `tools/visualizador/salida.py` |
 | ✅ | **Línea de comandos**, generada desde el esquema | `tools/visualizador/cli.py` |
-| ✅ | Tres pruebas automáticas, 55 comprobaciones | `tests/` |
+| ✅ | **Estilo Onda** (amplitud continua, grosor y relleno) | `tools/visualizador/estilos/onda.py` (etapa 3, T13) |
+| ✅ | Tres pruebas automáticas, 75 comprobaciones | `tests/` |
 | ✅ | Generador de la PoC, sigue funcionando como modo rápido | `tools/generar_overlay.py` |
 | ✅ | Guía de uso — **describe la PoC; hay que reescribirla en la etapa 6** | `docs/COMO_USAR.md` |
-| ⬜ | Estilo Onda | etapa 3 |
 | ⬜ | Proyectos y presets | etapa 4 |
 | ⬜ | Interfaz gráfica | etapa 5 |
 
@@ -125,7 +125,7 @@ Y siempre con un **control**: buscá también algo que sí deba estar. Los ids d
 
 ```powershell
 python tests\test_analisis.py                    # 36 comprobaciones
-python tests\test_render.py --export             # 19 comprobaciones
+python tests\test_render.py --export             # 36 comprobaciones
 python tests\verificar_sincronia.py --motor propio
 ```
 
