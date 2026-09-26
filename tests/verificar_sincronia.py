@@ -52,6 +52,11 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parent.parent
 AUDIO = RAIZ / "tests" / "fixtures" / "pista_prueba.wav"
 
+sys.path.insert(0, str(RAIZ / "tools"))
+from visualizador import consola  # noqa: E402
+
+consola.preparar()
+
 # Instantes con un ataque marcado en la pista de prueba, en segundos.
 # Derivados de su estructura: 120 BPM, 4/4, compases de 2 s.
 ATAQUES_ESPERADOS = [0.0, 1.0, 10.0]

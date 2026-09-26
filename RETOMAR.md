@@ -6,9 +6,9 @@
 
 ---
 
-## 🟢 Estado: todo aprobado. **Empezar la etapa 1 de la ruta.**
+## 🟢 Estado: etapa 1 cerrada. **Siguiente: etapa 2, motor de dibujo y Barras.**
 
-El fundador aprobó el MVP, el presupuesto ampliado y la ruta de trabajo. **No hay nada pendiente de su parte.** A construir.
+El análisis de audio funciona y sus cinco criterios pasan: 36 comprobaciones en verde con `python tests\test_analisis.py`.
 
 ### Tu punto de entrada es la ruta, no este archivo
 
@@ -16,7 +16,9 @@ El fundador aprobó el MVP, el presupuesto ampliado y la ruta de trabajo. **No h
 
 Ahí está la tabla de estado, las siete etapas con sus criterios de entrada y salida, y las reglas de trabajo. Está escrita para que **cualquier agente** pueda ubicarse y ejecutar, no sólo el que estuvo en esta conversación.
 
-**Siguiente:** etapa 1, análisis de audio. Un turno.
+**Siguiente:** etapa 2, motor de dibujo y estilo Barras. Dos turnos, y es la etapa más grande. Al cerrarla hay un **punto de control del fundador**: ve barras reales sobre su video antes de que se gasten los tres turnos de interfaz.
+
+> ⚠️ **Antes de dibujar, leé el aviso de la etapa 2 en la ruta.** La pista de prueba no tiene ningún instrumento entre 500 Hz y 2 kHz, así que las barras del medio van a salir planas con ese material — y eso se lee como un defecto del dibujo cuando es del audio. La primera tarea de la etapa es agregar una pista con espectro completo.
 
 ### Antes de escribir código, leé estos dos
 

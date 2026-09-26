@@ -40,6 +40,7 @@ tools/
     ├── __init__.py
     ├── analisis.py             audio → datos por cuadro
     ├── parametros.py           esquema, defaults, rangos, validación
+    ├── consola.py              salida UTF-8; la llama el punto de entrada
     ├── estilos/
     │   ├── __init__.py         registro: nombre → clase
     │   ├── base.py             el contrato que todo estilo cumple
@@ -78,12 +79,29 @@ Devuelve:
 class Analisis:
     n_cuadros: int            # EXACTAMENTE round(duracion * fps)
     fps: int
-    duracion: float           # segundos, del audio
+    duracion: float           # segundos, del audio decodificado
     bandas: np.ndarray        # forma (n_cuadros, n_bandas), valores 0..1
-    amplitud: np.ndarray      # forma (n_cuadros,), valores 0..1 — para el estilo onda
-    onda: np.ndarray          # forma (n_cuadros, n_columnas), -1..1 — forma de onda cruda
+    amplitud: np.ndarray      # forma (n_cuadros,), valores 0..1 — pico del cuadro
+    onda: np.ndarray          # forma (n_cuadros, n_columnas), valores 0..1
     frecuencias: np.ndarray   # forma (n_bandas + 1,), los bordes en Hz
+    ruta_audio: Path
 ```
+
+> **Dos correcciones de este contrato, hechas en la etapa 1 y declaradas acá.**
+>
+> **`onda` va de 0 a 1, no de −1 a 1.** La primera redacción decía "forma de onda
+> cruda" con signo. No sirve: para guardar la onda de un cuadro hay que reducir
+> cientos de muestras a cada columna, y reducir una señal que oscila alrededor de
+> cero con su signo intacto la aplasta a una línea recta. Se guarda el **pico de
+> magnitud** por columna, que es lo que los tres estilos previstos necesitan
+> — todos dibujan simétrico desde un eje. Si algún día hace falta una onda con
+> signo (un osciloscopio asimétrico), es un campo nuevo y no una reinterpretación
+> de este.
+>
+> **`n_columnas` se acota a las muestras del cuadro:** `min(1024, TASA/fps)`. A
+> 60 fps un cuadro son 800 muestras, así que pedir 1024 columnas sería inventar
+> resolución, y además rompe el cálculo vectorizado, que necesita cortes
+> estrictamente crecientes. El estilo que la dibuje remuestrea al ancho que use.
 
 **Reglas que no se negocian:**
 
@@ -184,6 +202,9 @@ JSON legible, con un campo `version` desde el primer día. Los presets llevan el
 | Esquema de parámetros declarativo | La interfaz se construye leyéndolo. Agregar un valor es una fila, no cinco archivos |
 | `generar_overlay.py` no se borra | Funciona, está verificado, y sus parámetros de codificación son la referencia de los tres modos de fondo |
 | Cuadros por entrada estándar a FFmpeg | Sin archivos intermedios: más rápido y no llena el disco |
+| Las bandas valen **energía**, no densidad espectral | Con bandas logarítmicas la densidad cae como 1/f y los graves tapan todo: medido, daban hasta **1182 veces** más que los agudos y arriba de 519 Hz no se dibujaba nada. Con energía, el ruido rosa sale plano (medido: 1.03x) |
+| La ventana de la FFT **termina** donde termina el cuadro | Una ventana centrada produce pre-eco: el dibujo empieza a subir antes del golpe. Verificado: con la ventana causal, los cuatro cuadros previos a un golpe quedan en cero exacto |
+| Todo cálculo por cuadro va vectorizado, no en bucle de Python | La primera versión recorría cuadros y columnas de a uno: 11,8 millones de iteraciones a 60 fps, y tardaba **14,4 s** donde ahora tarda **1,3 s** |
 
 ---
 

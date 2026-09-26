@@ -31,6 +31,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from visualizador import consola  # noqa: E402
+
+# La consola de Windows usa cp1252 y no puede con varios caracteres. Sin esto los
+# acentos salen ilegibles, y con algún símbolo el `print` directamente lanza
+# excepción y mata el programa. Ver `visualizador/consola.py`.
+consola.preparar()
+
 # Modos de dibujo de `showwaves`. La descripción es para el --help.
 MODOS = {
     "cline": "línea centrada, espejada arriba y abajo (la más parecida a un ecualizador)",

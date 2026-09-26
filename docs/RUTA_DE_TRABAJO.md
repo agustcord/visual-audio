@@ -36,8 +36,8 @@ Es la **ruta ejecutable** del MVP. Cada etapa dice qué necesita para empezar, q
 | — | Decisión del motor de dibujo | 1 | ✅ cerrada | T5 |
 | — | Investigación y definición del MVP | 1 | ✅ cerrada | T6 |
 | — | Gate 2 y ruta de trabajo | 1 | ✅ cerrada | T7 |
-| **1** | **Análisis de audio** | 1 | ⬜ **SIGUIENTE** | — |
-| **2** | **Motor de dibujo y estilo Barras** | 2 | ⬜ | — |
+| **1** | **Análisis de audio** | 1 | ✅ **cerrada** | T8 |
+| **2** | **Motor de dibujo y estilo Barras** | 2 | ⬜ **SIGUIENTE** | — |
 | **G** | **🚦 Punto de control del fundador** | — | ⬜ | — |
 | **3** | **Estilos Onda y Barras espejadas** | 1 | ⬜ | — |
 | **4** | **Proyectos y presets** | 1 | ⬜ | — |
@@ -45,7 +45,7 @@ Es la **ruta ejecutable** del MVP. Cada etapa dice qué necesita para empezar, q
 | **6** | **Integración y documentación** | 1 | ⬜ | — |
 | **7** | **Validación con el fundador** | 1 | ⬜ | — |
 
-**Consumido: 7 turnos. Restante del MVP: 10. Total Etapa 1: 17.**
+**Consumido: 8 turnos. Restante del MVP: 9. Total Etapa 1: 17.**
 
 > Nota sobre el número: el Gate 2 aprobó "10 turnos de MVP, Etapa 1 a 16" contando 6 turnos consumidos. Este turno (T7) es el séptimo, así que el total honesto es **17**. La diferencia es un turno de documentación que el fundador pidió expresamente; se registra en vez de disimularse.
 
@@ -136,7 +136,25 @@ No negociables. Están acá porque cada una se pagó con un error real.
 
 **Precondiciones:** etapa 1 cerrada.
 
+> ⚠️ **Hallazgo de la etapa 1 que afecta a esta: la pista de prueba es pobre de espectro.**
+>
+> `tests/fixtures/pista_prueba.wav` **no tiene ningún instrumento entre 500 Hz y
+> 2 kHz** — los acordes llegan hasta 440 Hz y los hats están arriba de 4 kHz.
+> Medido: el perfil del espectro queda vacío en toda esa franja.
+>
+> Para el análisis no importó, porque el reparto de bandas se verifica con ruido
+> rosa, que tiene respuesta conocida. **Pero para juzgar visualmente unas barras
+> sí importa:** con este material las barras del medio van a estar planas, y eso
+> se va a ver como un defecto del dibujo cuando es del audio.
+>
+> **Primera tarea de esta etapa:** agregar una pista de prueba con espectro
+> completo — `tests/fixtures/pista_espectro.wav`, con una melodía en 700–2500 Hz y
+> un redoblante de banda ancha. **Agregar una nueva, no modificar la existente**:
+> `pista_prueba.wav` tiene su hash documentado y `verificar_sincronia.py` depende
+> de su estructura rítmica.
+
 **Tareas**
+- La pista de prueba con espectro completo (ver el aviso de arriba).
 - `estilos/base.py` con el contrato de `ARQUITECTURA.md` §3.
 - `estilos/barras.py`: cantidad, grosor, separación, redondeo, degradado de dos colores, opacidad, resplandor, tapas de pico, reflejo, alineación abajo o centrada.
 - `render.py` con `cuadro(i)` y `cuadros()`.
