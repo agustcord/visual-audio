@@ -88,7 +88,7 @@ Razonamiento completo con citas por archivo y línea en [`docs/VIABILIDAD.md`](d
 
 ## Si sos un agente que retoma este proyecto
 
-**Tu punto de entrada es [`docs/RUTA_DE_TRABAJO.md`](docs/RUTA_DE_TRABAJO.md).** Tiene la tabla de estado, las siete etapas con criterios de entrada y salida, y las quince reglas de trabajo. Está escrita para que puedas ubicarte y ejecutar sin haber estado en las conversaciones anteriores.
+**Tu punto de entrada es [`docs/RUTA_DE_TRABAJO.md`](docs/RUTA_DE_TRABAJO.md).** Tiene la tabla de estado, las siete etapas con criterios de entrada y salida, y las reglas de trabajo. Está escrita para que puedas ubicarte y ejecutar sin haber estado en las conversaciones anteriores.
 
 El orden corto:
 

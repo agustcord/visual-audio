@@ -173,11 +173,34 @@ No va a ser hermoso. Va a ser un panel de valores a un lado y la vista previa al
 └───────────────────────────────┴──────────────────────────┘
 ```
 
+### Cómo se abre: `.bat` ahora, `.exe` más adelante
+
+**Decisión del fundador en T11.** Quedó explícita porque era un punto ciego: el MVP prometía *"sin programación para el usuario final"* pero nada decía cómo se lanza la herramienta, y abrir una terminal para arrancarla también es programación para quien no programa.
+
+| | Qué es | Cuándo |
+|---|---|---|
+| **`visualizador.bat`** | Acceso directo de doble clic. Llama a `pythonw.exe`, que abre la ventana **sin consola negra detrás** | **En el MVP**, etapa 6. Minutos, sin turno extra |
+| **`.exe` autónomo** | Empaquetado con PyInstaller: corre en una máquina sin Python | **Etapa más avanzada**, después del MVP. No comprometido |
+
+Por qué el `.bat` alcanza para el MVP: Python ya está instalado en la máquina del fundador (3.14.6, con `pythonw.exe` verificado en disco). El `.exe` resuelve un problema de **distribución**, no de uso, y el único usuario del MVP es el fundador. Empaquetar antes de que la herramienta esté terminada significa rehacer el empaquetado cada vez que algo cambie.
+
+Costos del `.exe` que hay que aceptar cuando llegue el momento, y que no son especulación: PyInstaller es una **dependencia nueva** (necesita aprobación, regla 13 de la ruta), el archivo pesa entre 80 y 150 MB porque empaqueta Python, `numpy` y `Pillow`, arranca más lento en frío, y los antivirus dan falsos positivos con cierta frecuencia.
+
+### Distribuir a terceros no es un objetivo de este proyecto
+
+Textual del fundador: *"El día de mañana puede que quiera distribuir esto, pero eso depende del resultado final, y no es una ruta que este proyecto actualmente este trabajando como un objetivo"*.
+
+Consecuencia para cualquier agente: **no diseñar para distribución.** Nada de instaladores, actualizaciones automáticas, telemetría, licencias, ni abstracciones "por si algún día otro lo usa". Se construye para un usuario, que es el fundador. Si esa puerta se abre, se abre con una decisión suya y se planifica entonces.
+
+> Nota que ahorra un susto a futuro: la herramienta **no incluye ni enlaza código de Drift**, así que no es obra derivada y la GPLv3 de Drift no le impone condiciones. Distribuirla sería una decisión libre, no un problema legal. Distinto es el empaquetado como *addon* de Drift, que sí está cerrado para un tercero por la firma Ed25519 — ver `.memory/wiki/Extensibilidad_de_Drift.md`.
+
 ### Principio de diseño: el motor no sabe que existe la interfaz
 
 El motor de render es una biblioteca que recibe un diccionario de parámetros y devuelve cuadros. La interfaz es un cliente más, igual que la línea de comandos.
 
 Esto tiene una consecuencia práctica que vale declarar: **si la interfaz resulta incómoda, se reemplaza sin tocar el motor.** Y mientras se construye, la línea de comandos sigue funcionando, así que hay algo usable en cada turno y no al final.
+
+Y una que aplica al empaquetado: el `.bat` y, más adelante, el `.exe` **sólo lanzan `gui.py`**. No son una capa con lógica propia. Eso es lo que hace que empaquetar no cueste rediseñar nada.
 
 ---
 

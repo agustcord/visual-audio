@@ -107,6 +107,7 @@ No negociables. Están acá porque cada una se pagó con un error real.
 13. **No agregar dependencias de Python** más allá de `numpy`, `Pillow` y `tkinter` sin consultarlo. El fundador eligió esta ruta por liviana.
 14. **`_reference/drift-src/` es de sólo lectura y no se versiona.** Y es la rama `main` (0.7.0 en desarrollo), **que no coincide con la versión instalada del fundador (0.6.0)**. Antes de razonar sobre código de Drift, verificá que esa parte exista en su binario.
 15. **No revivas una decisión cerrada sin declararlo.** Si la revertís, la nota vieja se marca `superseded` con el motivo; no se borra.
+16. **No diseñes para distribución.** El único usuario del MVP es el fundador. Nada de instaladores, actualizaciones automáticas, telemetría, licencias, ni abstracciones "por si algún día otro lo usa". Distribuir **no es un objetivo de este proyecto** (decisión de T11, verbatim en `docs/MVP.md` §4); si esa puerta se abre, la abre el fundador y se planifica entonces.
 
 ---
 
@@ -306,7 +307,8 @@ El agente le presenta al fundador:
 **Precondiciones:** etapa 5 cerrada.
 
 **Tareas**
-- Los tres modos de fondo elegibles desde la interfaz, con el recordatorio de qué hacer en Drift al terminar.
+- Los tres modos de fondo elegibles desde la interfaz, con el recordatorio de qué hacer en Drift al terminar. **Trama es el default** (decisión del fundador en T10).
+- **`visualizador.bat`**: acceso directo de doble clic, decisión del fundador en T11. Llama a `pythonw.exe` —no a `python.exe`— para que no quede una consola negra abierta detrás de la ventana. Verificado en disco: `C:\Users\Jonatan Agustín\AppData\Local\Programs\Python\Python314\pythonw.exe`. **No lleva lógica**: sólo lanza `gui.py`.
 - **Reescribir `COMO_USAR.md`** para la aplicación nueva, dejando lo de la línea de comandos como apéndice.
 - Actualizar `README.md` y `RETOMAR.md`.
 - Revisar que nada de la documentación contradiga a la herramienta.
@@ -318,6 +320,10 @@ El agente le presenta al fundador:
 | 6.1 | `COMO_USAR.md` describe la aplicación real, sin pasos obsoletos | lectura contra la herramienta |
 | 6.2 | Todo comando que aparezca en la documentación corre tal cual está escrito | ejecutar cada uno |
 | 6.3 | La tabla de estado de §1 y `RETOMAR.md` están al día | inspección |
+| 6.4 | **Doble clic en `visualizador.bat` abre la ventana, y no queda ninguna consola visible** | el fundador lo hace |
+| 6.5 | El `.bat` funciona **con espacios en la ruta** y desde cualquier directorio de trabajo | prueba manual documentada |
+
+> 6.5 no es paranoia: la ruta del proyecto tiene un espacio en `Jonatan Agustín`. Un `.bat` sin comillas y sin `%~dp0` falla ahí y en ningún otro lado, así que es el error que se descubre justo al entregar.
 
 ---
 
@@ -349,7 +355,10 @@ No comprometido. En orden de valor esperado:
 
 1. **Estilo circular / radial.** El más pedido de los que quedaron afuera. Requiere el segundo modelo de disposición (polar).
 2. **`--fondo transparente` como default**, cuando salga Drift 0.7.0. Ya está implementado; es cambiar un default y actualizar la documentación.
-3. **Más presets.**
-4. **Camino B**: keyframes calculados vía MCP para que el video pulse con la música. Barato, y quedó fuera del MVP por alcance, no por costo.
-5. **Capas múltiples.** Requiere cambiar `render.py` (ver `ARQUITECTURA.md`, última sección).
-6. **Camino C**: uniforms de audio en un fork de Drift. **Bloqueado por decisión del fundador** (compromiso nulo con terceros).
+3. **`.exe` autónomo con PyInstaller.** Decisión del fundador en T11: *"luego cuando el desarrollo pase a una etapa más avanzada"*. En el MVP alcanza el `.bat` de la etapa 6, porque Python ya está en la máquina. Antes de empezar, leer `docs/MVP.md` §4: PyInstaller es **dependencia nueva y necesita aprobación** (regla 13), pesa 80–150 MB y da falsos positivos de antivirus.
+4. **Más presets.**
+5. **Camino B**: keyframes calculados vía MCP para que el video pulse con la música. Barato, y quedó fuera del MVP por alcance, no por costo.
+6. **Capas múltiples.** Requiere cambiar `render.py` (ver `ARQUITECTURA.md`, última sección).
+7. **Camino C**: uniforms de audio en un fork de Drift. **Bloqueado por decisión del fundador** (compromiso nulo con terceros).
+
+**Lo que NO está en esta lista, a propósito: distribuir la herramienta a terceros.** Decisión del fundador en T11, textual: *"El día de mañana puede que quiera distribuir esto, pero eso depende del resultado final, y no es una ruta que este proyecto actualmente este trabajando como un objetivo"*. Ver la regla 16.

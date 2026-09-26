@@ -67,6 +67,8 @@ Ahí está la tabla de estado, las siete etapas con sus criterios de entrada y s
 | **Estilos** | Barras, barras espejadas, onda. Circular afuera y **no prometido** |
 | **Aspecto del estilo Barras** | ✅ Aprobado en el punto de control (T10) |
 | **Composición en Drift** | **Trama.** Chroma Key descartado para esta versión por el fundador |
+| **Cómo se abre la herramienta** | **`.bat` de doble clic en el MVP** (etapa 6, usa `pythonw.exe` para que no quede consola). **`.exe` con PyInstaller más adelante**, post-MVP. Detalle en `docs/MVP.md` §4 |
+| **Distribuir a terceros** | ❌ **No es objetivo de este proyecto.** Regla 16 de la ruta. No diseñar para eso |
 | **Versión objetivo** | **0.6.0**, la única verificable. El modo `transparente` para 0.7 ya está construido, así que no hay que elegir. Razonamiento en `docs/COLOR_EN_TRAMA.md` §4 |
 | **Presupuesto** | 10 turnos de MVP. Etapa 1 a **17** en total |
 | **Estándar de proyecto** | **1920×1080 a 30 fps** como default. La herramienta debe admitir otros |
