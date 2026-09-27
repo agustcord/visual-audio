@@ -44,8 +44,9 @@ Es la **ruta ejecutable** del MVP. Cada etapa dice qué necesita para empezar, q
 | **5** | **Interfaz gráfica** | 3 → **1** | ✅ **cerrada** | T17 |
 | **6** | **Integración y documentación** | 1 | ✅ **cerrada** | T19 |
 | **7** | **Reproductor de audio y Validación** | 1 | ✅ **completada** | T21 (código), T22/T23 (PASS formal MVP Capitán), T24 (cierre MVP v0.1.0-mvp) |
+| **Post-MVP** | **Optimización rendimiento y maquillaje UX** | 2 | ❌ **FAIL del Capitán** | T25-T26 (código), T27 (dictamen FAIL formal del Capitán) |
 
-**Consumido: 18 turnos (incluyendo T10, T12, T14, T16, T18, T20, T21, T22, T23, T24). MVP CERRADO con versión catalogada v0.1.0-mvp y veredicto PASS formal por el Capitán / Fundador. 277 comprobaciones automáticas pasando al 100% en verde.**
+**Consumido: 19 turnos (incluyendo T10, T12, T14, T16, T18, T20, T21, T22, T23, T24, T25, T26, T27). MVP CERRADO con versión catalogada v0.1.0-mvp y veredicto PASS formal por el Capitán / Fundador. Intento de optimización post-MVP: ❌ FAIL FORMAL DEL CAPITÁN (rendimiento bajo, trabas en UI y maquillaje no apreciado; NO APROBADO).**
 
 > T10 no estaba presupuestado: fue el turno del punto de control, donde el fundador
 > aprobó el aspecto y planteó la pregunta del color. Se gastó en medirla y
@@ -358,12 +359,12 @@ Total de la suite: **277 comprobaciones automáticas pasando al 100% en verde**.
 
 **Vía prioritaria abierta por el Capitán tras el PASS del MVP (T24):**
 
-1. **Optimización de rendimiento y atenuación de tirones (arquitectura multihilo, caché FFT/PCM y UX reactiva)**:
-   Solución técnica prioritaria solicitada por el Capitán para erradicar la percepción de congelamiento ("sensación de que se rompió") al mover variables en la GUI:
-   - Desacople del análisis y render en worker thread secundario con descarte de tareas obsoletas (cero bloqueos del hilo principal de Tkinter).
-   - Caché de muestras PCM decodificadas (elimina llamadas redundantes a FFmpeg) y caché de espectro FFT por bins (hace instantáneos los cambios de bandas y filtros).
-   - Debounce adaptativo por categoría de parámetro (30 ms para render superficial, 100 ms para ganancia/sensibilidad, 250 ms para análisis estructural).
-   - Feedback visual y UX: actualización inmediata de labels numéricos, preservación del fotograma anterior (never blank), badge sutil "⏳ Actualizando..." y cursor de espera inteligente.
+1. **Optimización de rendimiento y atenuación de tirones (T25-T26): ❌ RECHAZADA / DICTAMEN FAIL FORMAL DEL CAPITÁN (T27)**:
+   - **Dictamen textual del Capitán (T27):**
+     > *"declaro fail, el rendimiento es bajo. se sigue trabando, las maquillaje no se aprecian. declara el fail en la docummentación y en donde consideres asi no se cree que esta aprobado, luego convoca a investigadora, y que investigue como es el estandar de la industria, y como manejan este tipo de herramientas"*
+   - **Diagnóstico y motivos del rechazo:** Pese a la implementación de caché PCM, worker thread asíncrono con descarte LWW y debounce adaptativo (T25), y badge visual de actualización con cursor y retención de frame previo (T26), la experiencia en uso real demostró que el rendimiento sigue siendo bajo, la UI se sigue trabando al manipular variables y el maquillaje visual no se aprecia.
+   - **Estado formal:** **NO APROBADO (FAIL)**.
+   - **Próximo paso inmediato ordenado por el Capitán:** Convocar a **Ani Investigadora** para iniciar la **Fase 0: Investigación de estándar de la industria** sobre previsualización de audio-reactividad, render de espectros/ondas y manejo de rendimiento en editores de video (After Effects, DaVinci, Premiere, Blender) y herramientas dedicadas.
 2. **Estilo circular / radial.** El más pedido de los que quedaron afuera. Requiere el segundo modelo de disposición (polar).
 3. **`--fondo transparente` como default**, cuando salga Drift 0.7.0. Ya está implementado; es cambiar un default y actualizar la documentación.
 4. **`.exe` autónomo con PyInstaller.** Decisión del fundador en T11: *"luego cuando el desarrollo pase a una etapa más avanzada"*. En el MVP alcanza el `.bat` de la etapa 6, porque Python ya está en la máquina. Antes de empezar, leer `docs/MVP.md` §4: PyInstaller es **dependencia nueva y necesita aprobación** (regla 13), pesa 80–150 MB y da falsos positivos de antivirus.

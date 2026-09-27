@@ -10,7 +10,8 @@ Proyecto de **Jonatan Córdoba**, usuario externo de Drift — **no forma parte 
 
 **MVP Cerrado y Catalogado (v0.1.0-mvp) — Etapas 1 a 7 cerradas con PASS formal del Fundador.**  
 La versión de línea base cuenta con suite completa de **277 comprobaciones automáticas pasando al 100% en verde**.  
-Próximo ciclo: **Roadmap Post-MVP (Optimización de rendimiento, desacople multihilo y UX reactiva)**.
+Intento de optimización post-MVP (rendimiento y maquillaje UX): ❌ **FAIL formal del Capitán (T27)** — Rendimiento insuficiente, congelamientos persistentes en UI y maquillaje no apreciado en el uso real (**NO APROBADO**).  
+Próximo ciclo: **Fase 0 — Investigación del estándar de la industria** (Ani Investigadora) sobre cómo manejan editores de video y herramientas afines la previsualización interactiva y el render de audio-reactividad.
 
 El estado vivo y los detalles de continuidad están en **[`RETOMAR.md`](RETOMAR.md)**.
 
