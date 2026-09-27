@@ -19,3 +19,5 @@ importan, porque de ellas depende que la vista previa sea posible:
 """
 
 __version__ = "0.1.0"
+
+from . import bake  # noqa: E402

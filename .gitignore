@@ -16,8 +16,10 @@ out/
 *.mp3
 *.flac
 *.ogg
+*.driftbake.npz
 # Excepción: material de prueba chico y deliberado, si algún día lo hubiera
 !tests/fixtures/**
+tests/fixtures/*.driftbake.npz
 
 # --- Python ---
 __pycache__/

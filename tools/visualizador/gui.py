@@ -21,8 +21,9 @@ import tkinter as tk
 from tkinter import colorchooser, filedialog, messagebox, ttk
 from PIL import Image, ImageTk
 
-from . import estilos, parametros, proyecto, reproductor
-from .analisis import Analisis, ErrorDeAnalisis, analizar
+from . import analisis, bake, estilos, parametros, proyecto, reproductor
+from .analisis import Analisis, ErrorDeAnalisis, analizar, hornear_audio, proyectar_analisis
+from .bake import DatosBake, cargar_bake, obtener_ruta_bake, calcular_hash_audio
 from .render import Render
 from .reproductor import ReproductorAudio, crear_reproductor
 from .salida import ErrorDeSalida, SIGUIENTE_PASO, exportar
@@ -60,7 +61,7 @@ PARAMS_ESTRUCTURALES: set[str] = {
 
 class _TareaRender:
     """Solicitud inmutable enviada al worker thread de render."""
-    __slots__ = ("id_tarea", "ruta_audio", "estilo", "params", "cuadro", "callback")
+    __slots__ = ("id_tarea", "ruta_audio", "estilo", "params", "cuadro", "ancho_vp", "alto_vp", "callback")
 
     def __init__(
         self,
@@ -69,6 +70,8 @@ class _TareaRender:
         estilo: str,
         params: dict[str, Any],
         cuadro: int,
+        ancho_vp: int = 0,
+        alto_vp: int = 0,
         callback: Callable[[], None] | None = None,
     ) -> None:
         self.id_tarea = id_tarea
@@ -76,6 +79,8 @@ class _TareaRender:
         self.estilo = estilo
         self.params = params
         self.cuadro = cuadro
+        self.ancho_vp = ancho_vp
+        self.alto_vp = alto_vp
         self.callback = callback
 
 
@@ -122,6 +127,7 @@ class VentanaVisualizador:
 
         # Estado del motor
         self._ruta_audio: Path | None = None
+        self._datos_bake: DatosBake | None = None
         self._analisis: Analisis | None = None
         self._render: Render | None = None
         self._estilo: str = estilo or "barras"
@@ -173,6 +179,7 @@ class VentanaVisualizador:
 
         # Protocolos de ciclo de vida y prevención de procesos huérfanos (CA-5)
         self.root.protocol("WM_DELETE_WINDOW", self._al_cerrar_ventana)
+        self.root.bind("<Destroy>", self._al_destruir_root, add="+")
         try:
             atexit.register(self._al_salir_proceso)
         except Exception:
@@ -664,17 +671,88 @@ class VentanaVisualizador:
             self.cargar_audio(archivo)
 
     def cargar_audio(self, ruta: Path | str) -> bool:
-        """Carga y analiza una pista de audio. Muestra fotograma inicial de inmediato."""
-        ruta_p = Path(ruta)
+        """Carga y analiza una pista de audio mediante Pre-Bake persistente (.driftbake.npz).
+
+        Si el archivo .driftbake.npz existe y es válido, realiza carga instantánea (< 100 ms, 0 FFmpeg).
+        Si no existe, hornea asíncronamente en worker thread con feedback claro en la interfaz
+        ('Horneando análisis de audio...') sin bloquear el hilo principal de eventos de Tkinter.
+        """
+        ruta_p = Path(ruta).resolve()
         self.detener_reproduccion()
+
+        if not ruta_p.is_file():
+            err_msg = f"el archivo de audio no existe: {ruta_p}"
+            self._ultimo_error = err_msg
+            messagebox.showerror("Error al cargar audio", f"No se pudo cargar '{ruta_p.name}':\n\n{err_msg}")
+            return False
+
         try:
             params = self.obtener_parametros()
-            self._analisis = analizar(ruta_p, params, self._estilo)
+            fps = int(params.get("fps", 60))
+            hash_audio = bake.calcular_hash_audio(ruta_p)
+            ruta_bake = bake.obtener_ruta_bake(ruta_p, fps=fps)
+            datos_bake = bake.cargar_bake(ruta_bake, hash_esperado=hash_audio, fps_esperado=fps, ruta_audio=ruta_p)
+        except Exception as e:
+            self._ultimo_error = str(e)
+            messagebox.showerror("Error al cargar audio", f"No se pudo cargar '{ruta_p.name}':\n\n{e}")
+            return False
+
+        # Si no existe bake válido en disco, hornear asíncronamente en worker thread con feedback
+        if datos_bake is None:
+            self._dibujar_mensaje_espera("Horneando análisis de audio...")
+            try:
+                self.canvas_preview.config(cursor="watch")
+            except Exception:
+                pass
+            self.root.update_idletasks()
+
+            resultado: list[Any] = [None, None]
+            evento = threading.Event()
+
+            def _hilo_hornear() -> None:
+                try:
+                    resultado[0] = analisis.hornear_audio(ruta_p, fps=fps)
+                except Exception as ex:
+                    resultado[1] = ex
+                finally:
+                    evento.set()
+
+            t = threading.Thread(target=_hilo_hornear, daemon=True, name="WorkerHornearAudio")
+            t.start()
+
+            while not evento.is_set():
+                try:
+                    self.root.update()
+                except Exception:
+                    break
+                time.sleep(0.01)
+
+            try:
+                self.canvas_preview.config(cursor="")
+            except Exception:
+                pass
+
+            if resultado[1] is not None:
+                err = resultado[1]
+                self._ultimo_error = str(err)
+                self._dibujar_mensaje_espera("Error al analizar audio")
+                messagebox.showerror("Error al cargar audio", f"No se pudo cargar '{ruta_p.name}':\n\n{err}")
+                return False
+
+            datos_bake = resultado[0]
+
+        if datos_bake is None:
+            self._ultimo_error = f"No se obtuvieron datos de análisis para '{ruta_p.name}'"
+            return False
+
+        try:
+            self._datos_bake = datos_bake
+            self._analisis = proyectar_analisis(datos_bake, params, self._estilo)
             self._params_analisis_previo = self._extraer_params_analisis(params)
             self._ruta_audio = ruta_p
             self._render = Render(self._analisis, self._estilo, params)
             self._ultimo_error = None
-        except (ErrorDeAnalisis, Exception) as e:
+        except Exception as e:
             self._ultimo_error = str(e)
             messagebox.showerror("Error al cargar audio", f"No se pudo cargar '{ruta_p.name}':\n\n{e}")
             return False
@@ -873,8 +951,11 @@ class VentanaVisualizador:
     def _al_vencer_gracia_badge(self) -> None:
         """Disparado por el timer de gracia tras 80 ms si el cálculo continúa activo."""
         self._timer_badge_gracia = None
-        if self._calculo_en_progreso:
+        # Solo activar si el cálculo realmente sigue pendiente y no se ha entregado el cuadro
+        if self._calculo_en_progreso and self._id_render_mostrado < self._secuencia_render:
             self._mostrar_badge_actualizando()
+        else:
+            self._calculo_en_progreso = False
 
     def _desactivar_estado_computo(self) -> None:
         """Cancela timer de gracia pendiente, oculta el badge y restaura cursor normal."""
@@ -911,12 +992,16 @@ class VentanaVisualizador:
         self._secuencia_render += 1
         id_tarea = self._secuencia_render
         params = self.obtener_parametros()
+        cw = max(10, self.canvas_preview.winfo_width()) if hasattr(self, "canvas_preview") else 0
+        ch = max(10, self.canvas_preview.winfo_height()) if hasattr(self, "canvas_preview") else 0
         tarea = _TareaRender(
             id_tarea=id_tarea,
             ruta_audio=self._ruta_audio,
             estilo=self._estilo,
             params=params,
             cuadro=self._cuadro_actual,
+            ancho_vp=cw,
+            alto_vp=ch,
             callback=callback,
         )
 
@@ -934,9 +1019,11 @@ class VentanaVisualizador:
 
     def _bucle_worker_render(self) -> None:
         """Bucle continuo del worker thread secundario asíncrono."""
+        worker_datos_bake: DatosBake | None = None
         worker_analisis: Analisis | None = None
         worker_params_analisis: dict[str, Any] = {}
         worker_ruta_audio: Path | None = None
+        worker_fps: int = 60
 
         while not self._evento_cerrar_worker.is_set():
             try:
@@ -968,19 +1055,31 @@ class VentanaVisualizador:
 
                 try:
                     params_analisis = self._extraer_params_analisis(params)
+                    fps_param = int(params.get("fps", 60))
+
+                    if worker_datos_bake is None or worker_ruta_audio != ruta or worker_fps != fps_param:
+                        worker_datos_bake = hornear_audio(ruta, fps=fps_param)
+                        worker_ruta_audio = ruta
+                        worker_fps = fps_param
+                        worker_analisis = None
+
                     necesita_analisis = (
                         worker_analisis is None
-                        or worker_ruta_audio != ruta
                         or params_analisis != worker_params_analisis
                     )
                     if necesita_analisis:
-                        worker_analisis = analizar(ruta, params, estilo)
+                        worker_analisis = proyectar_analisis(worker_datos_bake, params, estilo)
                         worker_params_analisis = params_analisis
-                        worker_ruta_audio = ruta
 
                     render = Render(worker_analisis, estilo, params)
                     c_idx = max(0, min(cuadro, worker_analisis.n_cuadros - 1))
-                    cuadro_rgba = render.cuadro(c_idx)
+
+                    cw = getattr(tarea, "ancho_vp", 0)
+                    ch = getattr(tarea, "alto_vp", 0)
+                    if cw > 0 and ch > 0:
+                        cuadro_rgba = render.cuadro_viewport(c_idx, cw, ch)
+                    else:
+                        cuadro_rgba = render.cuadro(c_idx)
 
                     res = _ResultadoRender(
                         id_tarea=id_tarea,
@@ -1043,6 +1142,15 @@ class VentanaVisualizador:
 
         if ultimo_res.id_tarea >= self._id_render_mostrado:
             self._id_render_mostrado = ultimo_res.id_tarea
+            if self._id_render_mostrado >= self._secuencia_render:
+                if self._timer_badge_gracia is not None:
+                    try:
+                        self.root.after_cancel(self._timer_badge_gracia)
+                    except Exception:
+                        pass
+                    self._timer_badge_gracia = None
+                self._calculo_en_progreso = False
+
             if ultimo_res.analisis is not None:
                 self._analisis = ultimo_res.analisis
                 self._params_analisis_previo = ultimo_res.params_analisis
@@ -1059,8 +1167,11 @@ class VentanaVisualizador:
                 self._proyectar_en_canvas(ultimo_res.cuadro_rgba)
                 self._actualizar_indicador_tiempo()
 
-        # Si el worker no tiene más tareas pendientes en cola, desactivar feedback visual
-        if not self._worker_ocupado and self._cola_worker.empty() and self._cola_resultados.empty():
+        # Si el worker no tiene más tareas pendientes en cola o la última tarea ya fue entregada,
+        # desactivar estado de cómputo y ocultar feedback visual de inmediato
+        if (self._id_render_mostrado >= self._secuencia_render) or (
+            not self._worker_ocupado and self._cola_worker.empty() and self._cola_resultados.empty()
+        ):
             self._desactivar_estado_computo()
 
         if ultimo_res.callback:
@@ -1099,7 +1210,7 @@ class VentanaVisualizador:
         self._solicitar_render_async()
 
     def _actualizar_vista_previa_inmediata(self) -> None:
-        """Genera el cuadro actual mediante Render.cuadro(i) y lo proyecta."""
+        """Genera el cuadro actual mediante Viewport LOD o Render.cuadro(i) y lo proyecta."""
         if self._analisis is None or self._ruta_audio is None:
             return
 
@@ -1111,10 +1222,13 @@ class VentanaVisualizador:
         params = self.obtener_parametros()
         params_analisis = self._extraer_params_analisis(params)
 
-        # Si cambiaron parámetros que afectan al análisis, re-analizar
+        # Si cambiaron parámetros que afectan al análisis, re-proyectar en memoria O(1)
         if params_analisis != self._params_analisis_previo:
             try:
-                self._analisis = analizar(self._ruta_audio, params, self._estilo)
+                if self._datos_bake is not None:
+                    self._analisis = proyectar_analisis(self._datos_bake, params, self._estilo)
+                else:
+                    self._analisis = analizar(self._ruta_audio, params, self._estilo)
                 self._params_analisis_previo = params_analisis
                 self.scale_tiempo.config(to=max(0, self._analisis.n_cuadros - 1))
             except Exception as e:
@@ -1122,15 +1236,23 @@ class VentanaVisualizador:
                 return
 
         # Actualizar Render si no existe o cambiaron parámetros
-        self._render = Render(self._analisis, self._estilo, params)
+        if (
+            self._render is None
+            or self._render.analisis is not self._analisis
+            or getattr(self, "_params_render_previo", None) != params
+        ):
+            self._render = Render(self._analisis, self._estilo, params)
+            self._params_render_previo = params
 
         if not 0 <= self._cuadro_actual < self._analisis.n_cuadros:
             self._cuadro_actual = max(0, min(self._cuadro_actual, self._analisis.n_cuadros - 1))
 
-        # Contrato de Invarianza Estructural (MVP-5): usar estrictamente Render.cuadro(i)
-        cuadro_rgba = self._render.cuadro(self._cuadro_actual)
-        self._cuadro_raw_actual = cuadro_rgba
-        self._proyectar_en_canvas(cuadro_rgba)
+        # Viewport LOD nativo (CA-REARQ-4): renderizado directo a resolución física del Canvas (< 8 ms)
+        cw = max(10, self.canvas_preview.winfo_width())
+        ch = max(10, self.canvas_preview.winfo_height())
+        cuadro_vp = self._render.cuadro_viewport(self._cuadro_actual, cw, ch)
+        self._cuadro_raw_actual = None  # Se computa bajo demanda en obtener_cuadro_actual_raw()
+        self._proyectar_en_canvas(cuadro_vp)
         self._actualizar_indicador_tiempo()
 
     def _proyectar_en_canvas(self, img_rgba: Image.Image) -> None:
@@ -1156,8 +1278,13 @@ class VentanaVisualizador:
         else:  # transparente
             base = Image.new("RGBA", (nw, nh), (18, 18, 20, 255))
 
-        img_redim = img_rgba.resize((nw, nh), Image.Resampling.BILINEAR)
-        base.paste(img_redim, (0, 0), img_redim)
+        # Viewport LOD: Si la imagen ya tiene la resolución destino, omitir resize bilineal en CPU
+        if (lw, lh) == (nw, nh):
+            img_final = img_rgba
+        else:
+            img_final = img_rgba.resize((nw, nh), Image.Resampling.BILINEAR)
+
+        base.paste(img_final, (0, 0), img_final)
 
         img_tk = ImageTk.PhotoImage(base)
         self._imagen_tk_referencia = img_tk
@@ -1178,8 +1305,8 @@ class VentanaVisualizador:
             self._badge_actualizando.lift()
 
     def _al_redimensionar_canvas(self, event: Any = None) -> None:
-        if self._cuadro_raw_actual is not None:
-            self._proyectar_en_canvas(self._cuadro_raw_actual)
+        if self._render is not None and self._analisis is not None:
+            self._actualizar_vista_previa_inmediata()
         elif self._analisis is None:
             self._dibujar_mensaje_espera("Cargá un archivo de audio (.mp3, .wav, .flac) para previsualizar")
 
@@ -1190,7 +1317,7 @@ class VentanaVisualizador:
         self.canvas_preview.create_text(
             cw // 2, ch // 2,
             text=mensaje,
-            fill="#71717A",
+            fill="#A1A1AA",
             font=("TkDefaultFont", 11),
             justify="center",
             tags="mensaje_espera",
@@ -1366,7 +1493,11 @@ class VentanaVisualizador:
 
     def obtener_cuadro_actual_raw(self) -> Image.Image | None:
         """Devuelve el cuadro RGBA sin escalar generado por Render.cuadro(i)."""
-        return self._cuadro_raw_actual
+        if self._cuadro_raw_actual is not None:
+            return self._cuadro_raw_actual
+        if self._render is not None and 0 <= self._cuadro_actual < self._render.n_cuadros:
+            return self._render.cuadro(self._cuadro_actual)
+        return None
 
     # ----------------------------------------------------------------------- #
     # Exportación Asíncrona con Cancelación Cooperativa
@@ -1546,6 +1677,21 @@ class VentanaVisualizador:
         if self._dialogo_progreso and self._dialogo_progreso.winfo_exists():
             self.cancelar_exportacion()
         self.root.destroy()
+
+    def _al_destruir_root(self, event: Any = None) -> None:
+        """Manejador del evento <Destroy> para apagar el worker thread al destruir root."""
+        if event is not None and getattr(event, "widget", None) != self.root:
+            return
+        self._evento_cerrar_worker.set()
+        try:
+            self._cola_worker.put_nowait(None)
+        except Exception:
+            pass
+        if hasattr(self, "_reproductor") and self._reproductor is not None:
+            try:
+                self._reproductor.cerrar()
+            except Exception:
+                pass
 
     def _al_salir_proceso(self) -> None:
         """Hook atexit para garantizar terminación absoluta de cualquier proceso ffplay o hilo."""

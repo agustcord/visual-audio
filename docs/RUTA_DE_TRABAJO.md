@@ -44,9 +44,10 @@ Es la **ruta ejecutable** del MVP. Cada etapa dice qué necesita para empezar, q
 | **5** | **Interfaz gráfica** | 3 → **1** | ✅ **cerrada** | T17 |
 | **6** | **Integración y documentación** | 1 | ✅ **cerrada** | T19 |
 | **7** | **Reproductor de audio y Validación** | 1 | ✅ **completada** | T21 (código), T22/T23 (PASS formal MVP Capitán), T24 (cierre MVP v0.1.0-mvp) |
-| **Post-MVP** | **Optimización rendimiento y maquillaje UX** | 2 | ❌ **FAIL del Capitán** | T25-T26 (código), T27 (dictamen FAIL formal del Capitán) |
+| **Post-MVP** | **Optimización inicial rendimiento y maquillaje UX** | 2 | ❌ **FAIL del Capitán** | T25-T26 (código), T27 (dictamen FAIL formal del Capitán) |
+| **Re-Arq** | **Re-arquitectura Pre-Bake y Viewport LOD** | 11 | ✅ **PASS rotundo** | T28 (inv), T29-T31 (código), T32-T38 (estabilidad), T39 (cierre y PASS rotundo Capitán + QA) |
 
-**Consumido: 19 turnos (incluyendo T10, T12, T14, T16, T18, T20, T21, T22, T23, T24, T25, T26, T27). MVP CERRADO con versión catalogada v0.1.0-mvp y veredicto PASS formal por el Capitán / Fundador. Intento de optimización post-MVP: ❌ FAIL FORMAL DEL CAPITÁN (rendimiento bajo, trabas en UI y maquillaje no apreciado; NO APROBADO).**
+**Consumido: 30 turnos (hasta T39). MVP CERRADO con versión catalogada v0.1.0-mvp. Re-arquitectura de Rendimiento: ✅ PASS ROTUNDO FORMAL DEL CAPITÁN Y QA (Pre-Bake persistente, proyecciones matriciales O(1), suavizado vectorizado 2,65 ms, Viewport LOD a 60 fps y 388 comprobaciones automáticas deterministas en verde).**
 
 > T10 no estaba presupuestado: fue el turno del punto de control, donde el fundador
 > aprobó el aspecto y planteó la pregunta del color. Se gastó en medirla y

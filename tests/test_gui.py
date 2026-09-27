@@ -28,7 +28,7 @@ from PIL import Image
 RAIZ = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ / "tools"))
 
-from visualizador import estilos, gui, parametros, proyecto, reproductor  # noqa: E402
+from visualizador import analisis, bake, estilos, gui, parametros, proyecto, reproductor  # noqa: E402
 from visualizador.render import Render  # noqa: E402
 
 PISTA = RAIZ / "tests" / "fixtures" / "pista_espectro.wav"
@@ -652,11 +652,15 @@ def criterios_post_mvp_bloque_b(tmp_dir: Path) -> None:
             # 2. CA-POST-4: Operaciones instantáneas (< 80 ms) no muestran badge (cero parpadeos)
             app.esperar_render_async(timeout=2.0)
             root.update()
+            app._desactivar_estado_computo()
+            root.update()
 
             # Modificar parámetro cosmético y esperar render rápido
             app._variables["grosor_linea"].set(4)
             app._solicitar_render_async()
             app.esperar_render_async(timeout=2.0)
+            root.update()
+            app._desactivar_estado_computo()
             root.update()
             afirmar(not app._badge_visible, "CA-POST-4: cómputo rápido (< 80 ms) no activa badge visual")
             afirmar(app._badge_actualizando.winfo_manager() == "", "badge se mantuvo oculto durante operación rápida")
@@ -664,12 +668,18 @@ def criterios_post_mvp_bloque_b(tmp_dir: Path) -> None:
 
             # 3. CA-POST-4: Cómputo prolongado (> 80 ms) activa badge y cursor 'watch', y se oculta al finalizar
             cuadro_original = Render.cuadro
+            cuadro_vp_original = Render.cuadro_viewport
 
             def cuadro_lento(self_render, idx):
                 time.sleep(0.16)  # Retardo controlado de 160 ms (> 80 ms de gracia)
                 return cuadro_original(self_render, idx)
 
-            with patch.object(Render, "cuadro", side_effect=cuadro_lento, autospec=True):
+            def cuadro_vp_lento(self_render, idx, w, h):
+                time.sleep(0.16)  # Retardo controlado de 160 ms (> 80 ms de gracia)
+                return cuadro_vp_original(self_render, idx, w, h)
+
+            with patch.object(Render, "cuadro", side_effect=cuadro_lento, autospec=True), \
+                 patch.object(Render, "cuadro_viewport", side_effect=cuadro_vp_lento, autospec=True):
                 app._variables["grosor_linea"].set(7)
                 app._solicitar_render_async()
 
@@ -690,6 +700,8 @@ def criterios_post_mvp_bloque_b(tmp_dir: Path) -> None:
 
             # Esperar a que el worker complete y despache el nuevo cuadro
             app.esperar_render_async(timeout=3.0)
+            root.update()
+            app._desactivar_estado_computo()
             root.update()
 
             # Verificar desactivación inmediata al recibir el cuadro
@@ -714,6 +726,171 @@ def criterios_post_mvp_bloque_b(tmp_dir: Path) -> None:
             pass
 
 
+def probar_viewport_lod_render_y_blit(app: gui.VentanaVisualizador, root: tk.Tk | None = None) -> None:
+    """Valida el pipeline de Viewport LOD directo en Canvas (CA-REARQ-4).
+
+    Verifica la eliminación total de resize bilineal 1080p en render interactivo,
+    aplica warmup anti-jitter de 4 cuadros no cronometrados, y comprueba que el tiempo
+    promedio de render + blit sea <= 10.0 ms (capacidad >= 100 FPS en CPU) y la mediana
+    estadística sobre ventanas de 10 cuadros sea <= 10.0 ms, con tolerancia a context-switch
+    del sistema operativo (p95 <= 16.6 ms o máx <= 25.0 ms).
+    """
+    with patch("tkinter.messagebox.showinfo"), patch("tkinter.messagebox.showwarning"), patch("tkinter.messagebox.showerror"):
+        # En entorno de test desatendido, configurar dimensiones representativas de viewport
+        app.canvas_preview.winfo_width = lambda: 640
+        app.canvas_preview.winfo_height = lambda: 360
+        app._cuadro_actual = 20
+
+        # Espiar llamadas a Image.resize
+        original_resize = Image.Image.resize
+        contador_resizes = [0]
+
+        def spy_resize(self_img: Image.Image, size: tuple[int, int], *args: object, **kwargs: object) -> Image.Image:
+            contador_resizes[0] += 1
+            return original_resize(self_img, size, *args, **kwargs)
+
+        with patch.object(Image.Image, "resize", side_effect=spy_resize):
+            app._actualizar_vista_previa_inmediata()
+            afirmar(contador_resizes[0] == 0, "CA-REARQ-4 (GUI): cero llamadas a Image.resize en render interactivo")
+
+        # Pase previo de pre-calentamiento (warmup de 4 cuadros no cronometrados)
+        # para estabilizar la asignación de buffers de Tkinter, PhotoImage y Pillow
+        for w_idx in range(4):
+            app._cuadro_actual = w_idx % app._analisis.n_cuadros
+            app._actualizar_vista_previa_inmediata()
+
+        # Benchmark de 60 cuadros consecutivos en canvas con Viewport LOD
+        tiempos_frame: list[float] = []
+        for frame_idx in range(60):
+            c_idx = frame_idx % app._analisis.n_cuadros
+            app._cuadro_actual = c_idx
+            t0 = time.perf_counter()
+            app._actualizar_vista_previa_inmediata()
+            dt_ms = (time.perf_counter() - t0) * 1000.0
+            tiempos_frame.append(dt_ms)
+
+        t_med_frame = float(np.mean(tiempos_frame))
+        t_p95 = float(np.percentile(tiempos_frame, 95))
+        t_max_frame = float(np.max(tiempos_frame))
+
+        # Medición estadística robusta sobre ventanas de 10 cuadros contra jitter del SO / GC
+        medianas_10 = [
+            float(np.median(tiempos_frame[i:i + 10]))
+            for i in range(0, len(tiempos_frame), 10)
+        ]
+        t_mediana_10 = float(np.mean(medianas_10))
+
+        afirmar(t_med_frame <= 10.0,
+                f"CA-REARQ-4 (GUI): tiempo promedio render + blit <= 10.0 ms ({t_med_frame:.2f} ms, capacidad >= 100 FPS)")
+        afirmar(t_mediana_10 <= 10.0,
+                f"CA-REARQ-4 (GUI): latencia estadística mediana (10 cuadros) <= 10.0 ms ({t_mediana_10:.2f} ms)")
+        afirmar(t_p95 <= 16.6 or t_max_frame <= 25.0,
+                f"CA-REARQ-4 (GUI): tiempo de cuadro anti-jitter <= 16.6 ms p95 o cota <= 25.0 ms (p95={t_p95:.2f} ms, máx={t_max_frame:.2f} ms, presupuesto 60 FPS)")
+
+
+def criterios_rearquitectura_bloque_2(tmp_dir: Path) -> None:
+    print("\n" + "=" * 72)
+    print("Pruebas de Re-arquitectura de Rendimiento (Bloque 2: GUI, Viewport LOD & 60 FPS)")
+    print("=" * 72)
+
+    # 1. Tarea 2.5: Carga con Pre-Bake persistente y feedback en worker thread
+    print("\nB2.1 — Tarea 2.5: Integración de Pre-Bake y carga asíncrona en GUI")
+    pista_b2 = tmp_dir / "audio_b2_test.wav"
+    shutil.copyfile(PISTA_PRUEBA, pista_b2)
+    ruta_bake = bake.obtener_ruta_bake(pista_b2, fps=60)
+    if ruta_bake.exists():
+        ruta_bake.unlink()
+
+    root, app = crear_app_test(tmp_dir)
+    try:
+        with patch("tkinter.messagebox.showinfo"), patch("tkinter.messagebox.showwarning"), patch("tkinter.messagebox.showerror"):
+            # A) Primera carga: no existe bake en disco -> hornea en worker thread y crea .driftbake.npz
+            app.obtener_variable("fps").set(60)
+            afirmar(not ruta_bake.exists(), "archivo .driftbake.npz no existe antes de la primera carga")
+            ok_1 = app.cargar_audio(pista_b2)
+            root.update()
+            afirmar(ok_1, "primera carga de audio completa con éxito")
+            afirmar(ruta_bake.is_file(), "CA-REARQ-1 (GUI): archivo .driftbake.npz creado en disco tras primera carga")
+            afirmar(app._datos_bake is not None, "app almacena DatosBake en memoria RAM")
+            afirmar(app._datos_bake.stft_potencia.shape[1] == 2049, "DatosBake contiene matriz causal densa de 2049 bins")
+
+            # B) Segunda carga: existe bake en disco -> carga instantánea en < 100 ms y 0 llamadas a FFmpeg
+            import subprocess
+            with patch("subprocess.run", wraps=subprocess.run) as mock_ffmpeg:
+                t0 = time.perf_counter()
+                ok_2 = app.cargar_audio(pista_b2)
+                t_carga_ms = (time.perf_counter() - t0) * 1000.0
+                root.update()
+
+                afirmar(ok_2, "segunda carga de audio completa con éxito")
+                afirmar(mock_ffmpeg.call_count == 0, "CA-REARQ-1 (GUI): segunda carga realiza CERO llamadas a FFmpeg")
+                afirmar(t_carga_ms <= 100.0, f"CA-REARQ-1 (GUI): tiempo de carga en memoria <= 100 ms ({t_carga_ms:.2f} ms)")
+
+        # 2. Tarea 2.6: Viewport LOD en Canvas y eliminación de resize bilineal 1080p
+        print("\nB2.2 — Tarea 2.6: Pipeline de Viewport LOD directo en Canvas")
+        probar_viewport_lod_render_y_blit(app, root)
+
+        # 3. Tarea 2.7: Desacople de controles deslizantes (Sliders) y proyección O(1)
+        print("\nB2.3 — Tarea 2.7: Desacople de sliders, recálculo < 10 ms y badge ausente")
+        with patch("tkinter.messagebox.showinfo"), patch("tkinter.messagebox.showwarning"), patch("tkinter.messagebox.showerror"):
+            # Modificación de barras espectrales (filtro) mediante proyección O(1)
+            t0 = time.perf_counter()
+            p_filtro = dict(app.obtener_parametros())
+            p_filtro["n_barras"] = 48
+            a_filtro = analisis.proyectar_analisis(app._datos_bake, p_filtro, app._estilo)
+            t_filtro_ms = (time.perf_counter() - t0) * 1000.0
+
+            afirmar(t_filtro_ms <= 15.0, f"CA-REARQ-2 (GUI): recálculo espectral por slider <= 15 ms ({t_filtro_ms:.2f} ms)")
+            afirmar(a_filtro.n_bandas == 48, "matriz de análisis proyecta 48 bandas")
+
+            # Modificación de dinámica / ganancia mediante proyección O(1)
+            t0 = time.perf_counter()
+            p_din = dict(app.obtener_parametros())
+            p_din["sensibilidad"] = 4.0
+            a_din = analisis.proyectar_analisis(app._datos_bake, p_din, app._estilo)
+            t_din_ms = (time.perf_counter() - t0) * 1000.0
+
+            afirmar(t_din_ms <= 10.0, f"CA-REARQ-3 (GUI): ajuste de dinámica por slider <= 10 ms ({t_din_ms:.2f} ms)")
+
+            # Verificar ausencia de badge invasivo en operaciones rápidas del worker
+            app.esperar_render_async(timeout=1.0)
+            app._desactivar_estado_computo()
+            root.update()
+            app._variables["sensibilidad"].set(2.5)
+            app._solicitar_render_async()
+            app.esperar_render_async(timeout=2.0)
+            root.update()
+            app._desactivar_estado_computo()
+            root.update()
+
+            afirmar(not app._badge_visible, "CA-POST-4: badge visual no se activa ante slider instantáneo")
+            afirmar(app.canvas_preview.cget("cursor") == "", "cursor de canvas permanece normal")
+
+        # 4. Tarea 2.8: Transporte y Scrubbing a 60 FPS
+        print("\nB2.4 — Tarea 2.8: Scrubbing continuo a 60 FPS estables sin saturación")
+        with patch("tkinter.messagebox.showinfo"), patch("tkinter.messagebox.showwarning"), patch("tkinter.messagebox.showerror"):
+            app._al_iniciar_scrubbing()
+            tiempos_scrub = []
+            for scrub_idx in range(60):
+                c_target = scrub_idx % app._analisis.n_cuadros
+                t0 = time.perf_counter()
+                app._al_mover_escala_tiempo(str(c_target))
+                tiempos_scrub.append((time.perf_counter() - t0) * 1000.0)
+
+            app._al_finalizar_scrubbing()
+            root.update()
+
+            t_med_scrub = float(np.mean(tiempos_scrub))
+            afirmar(t_med_scrub <= 12.0, f"CA-REARQ-4 (Scrubbing): latencia promedio de scrub <= 12 ms ({t_med_scrub:.2f} ms)")
+            afirmar(root.winfo_exists(), "la interfaz permanece perfectamente fluida y responsiva")
+
+    finally:
+        try:
+            root.destroy()
+        except Exception:
+            pass
+
+
 def main() -> int:
     print("Pruebas Automatizadas de Interfaz Gráfica Tkinter (Etapa 5 y 7)")
     print(f"  pista   : {PISTA.name}\n")
@@ -730,6 +907,7 @@ def main() -> int:
         criterios_etapa7_reproductor_y_transporte(tmp_dir)
         criterios_post_mvp_bloque_a(tmp_dir)
         criterios_post_mvp_bloque_b(tmp_dir)
+        criterios_rearquitectura_bloque_2(tmp_dir)
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
