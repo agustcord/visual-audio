@@ -106,8 +106,16 @@ class Analisis:
 
 
 # --------------------------------------------------------------------------- #
-# Lectura del audio
+# Lectura del audio y caché PCM
 # --------------------------------------------------------------------------- #
+
+_CACHE_PCM: dict[tuple[Path, float], np.ndarray] = {}
+
+
+def limpiar_cache_pcm() -> None:
+    """Limpia la caché en memoria de muestras PCM decodificadas."""
+    _CACHE_PCM.clear()
+
 
 def _exigir_ffmpeg() -> str:
     ruta = shutil.which("ffmpeg")
@@ -127,12 +135,17 @@ def leer_mono(ruta: Path) -> np.ndarray:
     ciencia de datos para hacer lo mismo. El fundador eligió esta ruta porque
     After Effects le resultaba pesado; sumar 300 MB de dependencias la contradice.
     """
-    if not ruta.exists():
-        raise ErrorDeAnalisis(f"el archivo de audio no existe: {ruta}")
+    ruta_p = Path(ruta) if not isinstance(ruta, Path) else ruta
+    if not ruta_p.exists():
+        raise ErrorDeAnalisis(f"el archivo de audio no existe: {ruta_p}")
+
+    clave = (ruta_p.resolve(), ruta_p.stat().st_mtime)
+    if clave in _CACHE_PCM:
+        return _CACHE_PCM[clave]
 
     cmd = [
         _exigir_ffmpeg(), "-hide_banner", "-loglevel", "error", "-nostdin",
-        "-i", str(ruta),
+        "-i", str(ruta_p),
         "-vn",                      # ignorar video si el archivo lo tuviera
         "-ac", "1",                 # mezclar a mono
         "-ar", str(TASA),
@@ -142,17 +155,19 @@ def leer_mono(ruta: Path) -> np.ndarray:
     res = subprocess.run(cmd, capture_output=True)
     if res.returncode != 0:
         detalle = res.stderr.decode(errors="replace").strip()
-        raise ErrorDeAnalisis(f"FFmpeg no pudo leer '{ruta.name}':\n  {detalle}")
+        raise ErrorDeAnalisis(f"FFmpeg no pudo leer '{ruta_p.name}':\n  {detalle}")
 
     muestras = np.frombuffer(res.stdout, dtype="<f4")
     if muestras.size == 0:
         raise ErrorDeAnalisis(
-            f"'{ruta.name}' no tiene audio decodificable.\n"
+            f"'{ruta_p.name}' no tiene audio decodificable.\n"
             f"  ¿Es un video sin pista de audio, o un archivo dañado?"
         )
 
     # Copia escribible: `frombuffer` devuelve una vista de sólo lectura.
-    return np.array(muestras, dtype=np.float32)
+    arr = np.array(muestras, dtype=np.float32)
+    _CACHE_PCM[clave] = arr
+    return arr
 
 
 # --------------------------------------------------------------------------- #

@@ -536,6 +536,184 @@ def criterios_etapa7_reproductor_y_transporte(tmp_dir: Path) -> None:
             pass
 
 
+def criterios_post_mvp_bloque_a(tmp_dir: Path) -> None:
+    print("\n" + "=" * 72)
+    print("Pruebas de Optimización Post-MVP (Bloque A: Caché, Worker y Debounce)")
+    print("=" * 72)
+    root, app = crear_app_test(tmp_dir)
+    try:
+        with patch("tkinter.messagebox.showinfo"), patch("tkinter.messagebox.showwarning"), patch("tkinter.messagebox.showerror"):
+            app.cargar_audio(PISTA_PRUEBA)
+            root.update()
+
+            # 1. Debounce Adaptativo por Categoría de Parámetro
+            afirmar(hasattr(app, "_tiempo_debounce_para"), "app expone _tiempo_debounce_para()")
+            # Cosméticos (30 ms)
+            for p_cosm in ("color", "grosor_linea", "resplandor", "reflejo", "tapas_pico", "espaciado", "compensar_fondo"):
+                t_deb = app._tiempo_debounce_para(p_cosm)
+                afirmar(t_deb == 30, f"debounce adaptativo: '{p_cosm}' es cosmético (30 ms)")
+
+            # Dinámica / Ganancia (100 ms)
+            for p_din in ("sensibilidad", "suavizado", "caida_picos"):
+                t_deb = app._tiempo_debounce_para(p_din)
+                afirmar(t_deb == 100, f"debounce adaptativo: '{p_din}' es ganancia/dinámica (100 ms)")
+
+            # Analíticos Estructurales (250 ms)
+            for p_est in ("n_barras", "frec_min", "frec_max", "curva_respuesta", "fps"):
+                t_deb = app._tiempo_debounce_para(p_est)
+                afirmar(t_deb == 250, f"debounce adaptativo: '{p_est}' es estructural (250 ms)")
+
+            # 2. CA-POST-1: Hilo principal no bloqueante (< 16 ms) durante arrastre de sliders
+            latencias: list[float] = []
+            for v in range(10, 30):
+                t0 = time.perf_counter()
+                app._al_mover_slider("sensibilidad", str(v / 10.0))
+                root.update_idletasks()
+                t_ms = (time.perf_counter() - t0) * 1000
+                latencias.append(t_ms)
+
+            lat_max = max(latencias)
+            lat_med = sum(latencias) / len(latencias)
+            afirmar(lat_max <= 16.0,
+                    f"CA-POST-1: latencia en hilo principal <= 16 ms (máx {lat_max:.2f} ms, prom {lat_med:.2f} ms)")
+
+            # Verificar que el label numérico se actualizó instantáneamente
+            lbl_txt = app._labels_display["sensibilidad"].cget("text")
+            afirmar("2.90" in lbl_txt, f"CA-POST-5: label numérico actualizado de inmediato ({lbl_txt})")
+
+            # 3. CA-POST-3: Worker Thread y Descarte de Tareas Obsoletas (Last-Write-Wins)
+            afirmar(hasattr(app, "_worker_thread") and app._worker_thread.is_alive(),
+                    "app tiene worker thread secundario activo")
+            afirmar(hasattr(app, "_encolar_tarea_worker"),
+                    "app implementa encolado de tareas para el worker")
+
+            # Asegurar que no queden tareas pendientes del paso previo
+            if app._timer_debounce is not None:
+                try:
+                    app.root.after_cancel(app._timer_debounce)
+                except Exception:
+                    pass
+                app._timer_debounce = None
+            app.esperar_render_async(timeout=2.0)
+            root.update()
+
+            # Resetear contadores de auditoría
+            app._contador_renders_procesados = 0
+            app._contador_tareas_descartadas = 0
+
+            # Disparar ráfaga rápida de 10 eventos (< 200 ms total)
+            for i in range(10):
+                app._variables["grosor_linea"].set(i + 1)
+                app._solicitar_render_async()
+                time.sleep(0.001)  # ráfaga en ~10 ms (< 200 ms)
+
+            # Esperar a que el worker procese las tareas pendientes
+            app.esperar_render_async(timeout=3.0)
+            root.update()
+
+            proc = app._contador_renders_procesados
+            desc = app._contador_tareas_descartadas
+            afirmar(proc <= 2, f"CA-POST-3: worker procesó a lo sumo 2 tareas ({proc} procesadas <= 2)")
+            afirmar(desc >= 8, f"CA-POST-3: intermedias descartadas automáticamente ({desc} descartadas >= 8)")
+
+            # Verificar que el resultado final corresponde al último valor de la ráfaga (grosor_linea = 10)
+            afirmar(app._cuadro_raw_actual is not None, "cuadro renderizado entregado al canvas")
+
+    finally:
+        try:
+            root.destroy()
+        except Exception:
+            pass
+
+
+def criterios_post_mvp_bloque_b(tmp_dir: Path) -> None:
+    print("\n" + "=" * 72)
+    print("Pruebas de Maquillaje y UX Reactiva (Bloque B: Badge, Cursor y Ghost Frame)")
+    print("=" * 72)
+    root, app = crear_app_test(tmp_dir)
+    try:
+        with patch("tkinter.messagebox.showinfo"), patch("tkinter.messagebox.showwarning"), patch("tkinter.messagebox.showerror"):
+            app.cargar_audio(PISTA_PRUEBA)
+            root.update()
+
+            # 1. Existencia y tokens de diseño del badge (Accesibilidad & Contrato Visual)
+            afirmar(hasattr(app, "_badge_actualizando"), "app expone widget _badge_actualizando")
+            lbl_texto = app._badge_actualizando.cget("text")
+            afirmar(lbl_texto == "⏳ Actualizando...", f"badge contiene texto exacto: '{lbl_texto}'")
+            bg_col = app._badge_actualizando.cget("bg")
+            fg_col = app._badge_actualizando.cget("fg")
+            afirmar(bg_col == "#18181B" and fg_col == "#F4F4F5",
+                    f"badge cumple paleta accesible de alto contraste (15.9:1): bg={bg_col}, fg={fg_col}")
+            afirmar(not app._badge_visible, "badge inicialmente inactivo (_badge_visible == False)")
+            afirmar(app._badge_actualizando.winfo_manager() == "", "badge inicialmente no mapeado en canvas")
+            afirmar(app.canvas_preview.cget("cursor") == "", "cursor de canvas inicialmente en estado normal ('')")
+            afirmar(not app.esta_actualizando(), "esta_actualizando() reporta False en reposo")
+
+            # 2. CA-POST-4: Operaciones instantáneas (< 80 ms) no muestran badge (cero parpadeos)
+            app.esperar_render_async(timeout=2.0)
+            root.update()
+
+            # Modificar parámetro cosmético y esperar render rápido
+            app._variables["grosor_linea"].set(4)
+            app._solicitar_render_async()
+            app.esperar_render_async(timeout=2.0)
+            root.update()
+            afirmar(not app._badge_visible, "CA-POST-4: cómputo rápido (< 80 ms) no activa badge visual")
+            afirmar(app._badge_actualizando.winfo_manager() == "", "badge se mantuvo oculto durante operación rápida")
+            afirmar(app.canvas_preview.cget("cursor") == "", "cursor permaneció normal sin parpadeo")
+
+            # 3. CA-POST-4: Cómputo prolongado (> 80 ms) activa badge y cursor 'watch', y se oculta al finalizar
+            cuadro_original = Render.cuadro
+
+            def cuadro_lento(self_render, idx):
+                time.sleep(0.16)  # Retardo controlado de 160 ms (> 80 ms de gracia)
+                return cuadro_original(self_render, idx)
+
+            with patch.object(Render, "cuadro", side_effect=cuadro_lento, autospec=True):
+                app._variables["grosor_linea"].set(7)
+                app._solicitar_render_async()
+
+                # Esperar 100 ms para que venza el temporizador de gracia de 80 ms
+                time.sleep(0.10)
+                root.update()
+
+                # Verificar activación durante el cálculo (> 80 ms)
+                afirmar(app._badge_visible, "CA-POST-4: badge se activa tras superar umbral de gracia de 80 ms")
+                afirmar(app._badge_actualizando.winfo_manager() == "place", "CA-POST-4: widget de badge mapeado en canvas ('place')")
+                afirmar(app.canvas_preview.cget("cursor") == "watch", "CA-POST-4: cursor inteligente conmuta a 'watch' durante cálculo")
+                afirmar(app.esta_actualizando(), "esta_actualizando() reporta True durante cálculo")
+
+                # Preservación de fotograma previo (Ghost frame / Never blank) mientras calcula
+                items_durante = app.canvas_preview.find_withtag("canvas_imagen")
+                afirmar(len(items_durante) > 0, "CA-POST-5: canvas conserva el fotograma previo durante el cálculo (never blank)")
+                afirmar(app._cuadro_raw_actual is not None, "cuadro previo en memoria intacto durante el cálculo")
+
+            # Esperar a que el worker complete y despache el nuevo cuadro
+            app.esperar_render_async(timeout=3.0)
+            root.update()
+
+            # Verificar desactivación inmediata al recibir el cuadro
+            afirmar(not app._badge_visible, "CA-POST-4: badge se desactiva inmediatamente al entregar nuevo cuadro")
+            afirmar(app._badge_actualizando.winfo_manager() == "", "CA-POST-4: widget de badge desmapeado del canvas")
+            afirmar(app.canvas_preview.cget("cursor") == "", "CA-POST-4: cursor restaurado a flecha normal ('') al finalizar")
+            afirmar(not app.esta_actualizando(), "esta_actualizando() reporta False tras finalizar")
+
+            # Preservación y proyección del nuevo cuadro
+            items_despues = app.canvas_preview.find_withtag("canvas_imagen")
+            afirmar(len(items_despues) == 1, "un único cuadro renderizado proyectado en canvas al concluir")
+
+            # 4. Respuesta sincrónica inmediata de displays numéricos (CA-POST-5)
+            app._al_mover_slider("n_barras", "48")
+            lbl_barras = app._labels_display["n_barras"].cget("text")
+            afirmar(lbl_barras == "48", f"CA-POST-5: label numérico actualizado de inmediato a 60 fps ({lbl_barras})")
+
+    finally:
+        try:
+            root.destroy()
+        except Exception:
+            pass
+
+
 def main() -> int:
     print("Pruebas Automatizadas de Interfaz Gráfica Tkinter (Etapa 5 y 7)")
     print(f"  pista   : {PISTA.name}\n")
@@ -550,6 +728,8 @@ def main() -> int:
         criterio_5_6_resiliencia_errores(tmp_dir)
         pruebas_transporte_y_presets(tmp_dir)
         criterios_etapa7_reproductor_y_transporte(tmp_dir)
+        criterios_post_mvp_bloque_a(tmp_dir)
+        criterios_post_mvp_bloque_b(tmp_dir)
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 

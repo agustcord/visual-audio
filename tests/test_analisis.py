@@ -261,6 +261,44 @@ def validacion_de_parametros() -> None:
             "completa los valores que faltan con sus defaults")
 
 
+def criterio_post_2_cache_pcm() -> None:
+    print("\nCA-POST-2  Caché de decodificación PCM en memoria")
+    import subprocess
+    import time
+    from unittest.mock import patch
+
+    # 1. Verificar que existe la función limpiar_cache_pcm y que vacía la caché
+    afirmar(hasattr(analisis, "limpiar_cache_pcm"), "analisis expone limpiar_cache_pcm()")
+    analisis.limpiar_cache_pcm()
+    afirmar(len(analisis._CACHE_PCM) == 0, "limpiar_cache_pcm vacía el diccionario _CACHE_PCM")
+
+    # 2. Primera lectura decodifica con ffmpeg y almacena en caché
+    with patch("subprocess.run", wraps=subprocess.run) as mock_run:
+        m1 = analisis.leer_mono(PISTA)
+        afirmar(mock_run.call_count == 1, "primera decodificación invoca subprocess.run con ffmpeg")
+        afirmar(len(analisis._CACHE_PCM) == 1, "_CACHE_PCM almacena las muestras decodificadas")
+
+    # 3. Segunda lectura usa la caché y NO invoca ffmpeg (0 llamadas)
+    with patch("subprocess.run", wraps=subprocess.run) as mock_run:
+        t0 = time.perf_counter()
+        m2 = analisis.leer_mono(PISTA)
+        t_cache = (time.perf_counter() - t0) * 1000
+        afirmar(mock_run.call_count == 0, "segunda lectura tiene CERO llamadas a FFmpeg (CA-POST-2)")
+        afirmar(np.array_equal(m1, m2), "las muestras retornadas desde la caché son idénticas")
+        afirmar(t_cache < 5.0, f"recuperación de caché ultra-rápida ({t_cache:.2f} ms < 5 ms)")
+
+    # 4. analizar() repetido tampoco invoca FFmpeg
+    with patch("subprocess.run", wraps=subprocess.run) as mock_run:
+        analisis.analizar(PISTA, {"fps": 30, "n_barras": 32})
+        afirmar(mock_run.call_count == 0, "analizar() con nuevos parámetros no invoca FFmpeg si el audio ya está en caché")
+
+    # 5. Tras limpiar_cache_pcm(), vuelve a invocar ffmpeg
+    analisis.limpiar_cache_pcm()
+    with patch("subprocess.run", wraps=subprocess.run) as mock_run:
+        analisis.leer_mono(PISTA)
+        afirmar(mock_run.call_count == 1, "tras limpiar_cache_pcm(), se vuelve a invocar ffmpeg")
+
+
 def main() -> int:
     if not PISTA.exists():
         print(f"error: falta la pista de prueba: {PISTA}\n"
@@ -279,6 +317,7 @@ def main() -> int:
     criterio_1_3()
     criterio_1_4()
     validacion_de_parametros()
+    criterio_post_2_cache_pcm()
 
     print(f"\n{_pasadas} comprobaciones pasadas, {len(_fallas)} fallas")
     if _fallas:

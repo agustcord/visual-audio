@@ -37,6 +37,71 @@ def formatear_tiempo(segundos: float) -> str:
     return f"{minutos:02d}:{resto:06.3f}"
 
 
+# Tiempos de debounce adaptativo y feedback visual (Bloques A y B / CA-POST-1 a CA-POST-5)
+DEBOUNCE_COSMETICO_MS: int = 30
+DEBOUNCE_DINAMICA_MS: int = 100
+DEBOUNCE_ESTRUCTURAL_MS: int = 250
+TIEMPO_GRACIA_BADGE_MS: int = 80
+
+PARAMS_COSMETICOS: set[str] = {
+    "color", "color_final", "color_fondo", "fondo", "grosor_linea",
+    "resplandor", "resplandor_radio", "reflejo", "reflejo_opacidad",
+    "reflejo_desenfoque", "tapas_pico", "espaciado", "compensar_fondo",
+    "lienzo_ancho", "lienzo_alto", "x", "y", "ancho", "alto", "relleno",
+    "tipo_linea", "redondeo", "degradado", "modo_fusion",
+}
+PARAMS_DINAMICA: set[str] = {
+    "sensibilidad", "suavizado", "caida_picos",
+}
+PARAMS_ESTRUCTURALES: set[str] = {
+    "n_barras", "frec_min", "frec_max", "curva_respuesta", "fps",
+}
+
+
+class _TareaRender:
+    """Solicitud inmutable enviada al worker thread de render."""
+    __slots__ = ("id_tarea", "ruta_audio", "estilo", "params", "cuadro", "callback")
+
+    def __init__(
+        self,
+        id_tarea: int,
+        ruta_audio: Path,
+        estilo: str,
+        params: dict[str, Any],
+        cuadro: int,
+        callback: Callable[[], None] | None = None,
+    ) -> None:
+        self.id_tarea = id_tarea
+        self.ruta_audio = ruta_audio
+        self.estilo = estilo
+        self.params = params
+        self.cuadro = cuadro
+        self.callback = callback
+
+
+class _ResultadoRender:
+    """Resultado generado por el worker thread listo para despachar a la UI."""
+    __slots__ = ("id_tarea", "analisis", "render", "params_analisis", "cuadro_rgba", "error", "callback")
+
+    def __init__(
+        self,
+        id_tarea: int,
+        analisis: Analisis | None,
+        render: Render | None,
+        params_analisis: dict[str, Any],
+        cuadro_rgba: Image.Image | None,
+        error: Exception | None = None,
+        callback: Callable[[], None] | None = None,
+    ) -> None:
+        self.id_tarea = id_tarea
+        self.analisis = analisis
+        self.render = render
+        self.params_analisis = params_analisis
+        self.cuadro_rgba = cuadro_rgba
+        self.error = error
+        self.callback = callback
+
+
 class VentanaVisualizador:
     """Ventana principal de la interfaz gráfica del visualizador."""
 
@@ -78,6 +143,28 @@ class VentanaVisualizador:
         self._reproduciendo: bool = False
         self._timer_animacion: str | None = None
         self._cuadro_fin_animacion: int = 0
+
+        # Worker thread secundario asíncrono y cola Last-Write-Wins (Bloque A / CA-POST-1 y CA-POST-3)
+        self._secuencia_render: int = 0
+        self._id_render_mostrado: int = 0
+        self._contador_tareas_descartadas: int = 0
+        self._contador_renders_procesados: int = 0
+        self._cola_worker: queue.Queue[_TareaRender | None] = queue.Queue(maxsize=1)
+        self._cola_resultados: queue.Queue[_ResultadoRender] = queue.Queue()
+        self._evento_cerrar_worker = threading.Event()
+        self._worker_ocupado: bool = False
+        self._worker_thread = threading.Thread(
+            target=self._bucle_worker_render,
+            daemon=True,
+            name="WorkerRenderAsync",
+        )
+        self._worker_thread.start()
+ 
+        # Feedback visual de actualización y cursor inteligente (Bloque B / CA-POST-4)
+        self._timer_badge_gracia: str | None = None
+        self._timer_chequeo_resultados: str | None = None
+        self._badge_visible: bool = False
+        self._calculo_en_progreso: bool = False
 
         # Exportación en segundo plano
         self._hilo_export: threading.Thread | None = None
@@ -164,6 +251,22 @@ class VentanaVisualizador:
         self.canvas_preview = tk.Canvas(frame_canvas, bg="#111114", highlightthickness=0)
         self.canvas_preview.grid(row=0, column=0, sticky="nsew")
         self.canvas_preview.bind("<Configure>", self._al_redimensionar_canvas)
+
+        # Badge sutil de actualización ("⏳ Actualizando...") en canvas_preview (Bloque B / CA-POST-4)
+        self._badge_actualizando = tk.Label(
+            self.canvas_preview,
+            text="⏳ Actualizando...",
+            bg="#18181B",
+            fg="#F4F4F5",
+            font=("TkDefaultFont", 9, "bold"),
+            highlightbackground="#3F3F46",
+            highlightcolor="#3F3F46",
+            highlightthickness=1,
+            bd=0,
+            padx=10,
+            pady=4,
+        )
+        self._badge_visible = False
 
         # Texto inicial si no hay audio
         self._dibujar_mensaje_espera("Cargá un archivo de audio (.mp3, .wav, .flac) para previsualizar")
@@ -459,9 +562,9 @@ class VentanaVisualizador:
 
         self._al_cambiar_parametro(nombre)
 
-    def _al_cambiar_parametro(self, nombre: str) -> None:
+    def _al_cambiar_parametro(self, nombre: str | None = None) -> None:
         self._actualizar_habilitacion_dependencias()
-        self._programar_debounce_render()
+        self._programar_debounce_render(nombre)
 
     def _actualizar_habilitacion_dependencias(self) -> None:
         """Habilita o deshabilita controles según parametros.tiene_efecto()."""
@@ -695,23 +798,315 @@ class VentanaVisualizador:
     # Área de Vista Previa, Scrubbing y Transporte
     # ----------------------------------------------------------------------- #
 
-    def _programar_debounce_render(self) -> None:
-        """Programa la actualización de vista previa con debounce de 50 ms."""
+    def _tiempo_debounce_para(self, nombre: str | None) -> int:
+        """Determina la latencia de debounce adaptativo según el tipo de parámetro."""
+        if not nombre:
+            return 50
+        if nombre in PARAMS_COSMETICOS:
+            return DEBOUNCE_COSMETICO_MS
+        if nombre in PARAMS_DINAMICA:
+            return DEBOUNCE_DINAMICA_MS
+        if nombre in PARAMS_ESTRUCTURALES:
+            return DEBOUNCE_ESTRUCTURAL_MS
+        return 50
+
+    def _programar_debounce_render(self, nombre: str | None = None) -> None:
+        """Programa la actualización de vista previa con debounce adaptativo por parámetro."""
         if self._timer_debounce is not None:
             try:
                 self.root.after_cancel(self._timer_debounce)
             except Exception:
                 pass
-        self._timer_debounce = self.root.after(50, self._actualizar_vista_previa)
+            self._timer_debounce = None
+        ms = self._tiempo_debounce_para(nombre)
+        self._timer_debounce = self.root.after(ms, self._al_vencer_debounce)
+
+    def _al_vencer_debounce(self) -> None:
+        self._timer_debounce = None
+        self._solicitar_render_async()
+
+    def _encolar_tarea_worker(self, tarea: _TareaRender) -> None:
+        """Encola una tarea en el worker descartando la tarea previa si aún no se procesó (LWW)."""
+        while True:
+            try:
+                self._cola_worker.put_nowait(tarea)
+                break
+            except queue.Full:
+                try:
+                    descartada = self._cola_worker.get_nowait()
+                    if descartada is not None:
+                        self._contador_tareas_descartadas += 1
+                except queue.Empty:
+                    pass
+
+    def esta_actualizando(self) -> bool:
+        """Indica si hay un cálculo asíncrono en curso o el badge visual está activo."""
+        return self._worker_ocupado or self._calculo_en_progreso or self._badge_visible
+
+    def _mostrar_badge_actualizando(self) -> None:
+        """Muestra el badge visual sutil en el visor y conmuta cursor a espera ('watch')."""
+        if not hasattr(self, "canvas_preview") or not self.canvas_preview.winfo_exists():
+            return
+        self._badge_visible = True
+        if hasattr(self, "_badge_actualizando") and self._badge_actualizando.winfo_exists():
+            self._badge_actualizando.place(relx=1.0, rely=0.0, anchor="ne", x=-14, y=14)
+            self._badge_actualizando.lift()
+        try:
+            self.canvas_preview.config(cursor="watch")
+        except Exception:
+            pass
+
+    def _ocultar_badge_actualizando(self) -> None:
+        """Oculta el badge visual y restaura el cursor normal ('')."""
+        self._badge_visible = False
+        if hasattr(self, "_badge_actualizando") and self._badge_actualizando.winfo_exists():
+            try:
+                self._badge_actualizando.place_forget()
+            except Exception:
+                pass
+        if hasattr(self, "canvas_preview") and self.canvas_preview.winfo_exists():
+            try:
+                self.canvas_preview.config(cursor="")
+            except Exception:
+                pass
+
+    def _al_vencer_gracia_badge(self) -> None:
+        """Disparado por el timer de gracia tras 80 ms si el cálculo continúa activo."""
+        self._timer_badge_gracia = None
+        if self._calculo_en_progreso:
+            self._mostrar_badge_actualizando()
+
+    def _desactivar_estado_computo(self) -> None:
+        """Cancela timer de gracia pendiente, oculta el badge y restaura cursor normal."""
+        self._calculo_en_progreso = False
+        if self._timer_badge_gracia is not None:
+            try:
+                self.root.after_cancel(self._timer_badge_gracia)
+            except Exception:
+                pass
+            self._timer_badge_gracia = None
+        if hasattr(self, "_timer_chequeo_resultados") and self._timer_chequeo_resultados is not None:
+            try:
+                self.root.after_cancel(self._timer_chequeo_resultados)
+            except Exception:
+                pass
+            self._timer_chequeo_resultados = None
+        self._ocultar_badge_actualizando()
+
+    def _programar_chequeo_resultados(self) -> None:
+        """Programa sondeo proactivo periódico en el hilo principal para despachar resultados del worker."""
+        if getattr(self, "_timer_chequeo_resultados", None) is None and self._calculo_en_progreso:
+            self._timer_chequeo_resultados = self.root.after(20, self._al_timer_chequeo_resultados)
+
+    def _al_timer_chequeo_resultados(self) -> None:
+        self._timer_chequeo_resultados = None
+        self._procesar_resultados_worker()
+        if self._calculo_en_progreso or not self._cola_resultados.empty():
+            self._programar_chequeo_resultados()
+
+    def _solicitar_render_async(self, callback: Callable[[], None] | None = None) -> int:
+        """Encola una solicitud de render asíncrono en el worker thread."""
+        if self._ruta_audio is None:
+            return 0
+        self._secuencia_render += 1
+        id_tarea = self._secuencia_render
+        params = self.obtener_parametros()
+        tarea = _TareaRender(
+            id_tarea=id_tarea,
+            ruta_audio=self._ruta_audio,
+            estilo=self._estilo,
+            params=params,
+            cuadro=self._cuadro_actual,
+            callback=callback,
+        )
+
+        # Activar estado de cómputo en progreso y programar temporizador de gracia (80 ms)
+        self._calculo_en_progreso = True
+        if self._timer_badge_gracia is None and not self._badge_visible:
+            self._timer_badge_gracia = self.root.after(
+                TIEMPO_GRACIA_BADGE_MS,
+                self._al_vencer_gracia_badge,
+            )
+        self._programar_chequeo_resultados()
+
+        self._encolar_tarea_worker(tarea)
+        return id_tarea
+
+    def _bucle_worker_render(self) -> None:
+        """Bucle continuo del worker thread secundario asíncrono."""
+        worker_analisis: Analisis | None = None
+        worker_params_analisis: dict[str, Any] = {}
+        worker_ruta_audio: Path | None = None
+
+        while not self._evento_cerrar_worker.is_set():
+            try:
+                tarea = self._cola_worker.get(timeout=0.1)
+            except queue.Empty:
+                continue
+
+            if tarea is None or self._evento_cerrar_worker.is_set():
+                break
+
+            self._worker_ocupado = True
+            try:
+                # Si llegaron solicitudes más recientes mientras se despertaba, absorber la última directamente
+                while not self._cola_worker.empty():
+                    try:
+                        mas_nueva = self._cola_worker.get_nowait()
+                        if mas_nueva is not None:
+                            self._contador_tareas_descartadas += 1
+                            tarea = mas_nueva
+                    except queue.Empty:
+                        break
+
+                self._contador_renders_procesados += 1
+                id_tarea = tarea.id_tarea
+                params = tarea.params
+                estilo = tarea.estilo
+                ruta = tarea.ruta_audio
+                cuadro = tarea.cuadro
+
+                try:
+                    params_analisis = self._extraer_params_analisis(params)
+                    necesita_analisis = (
+                        worker_analisis is None
+                        or worker_ruta_audio != ruta
+                        or params_analisis != worker_params_analisis
+                    )
+                    if necesita_analisis:
+                        worker_analisis = analizar(ruta, params, estilo)
+                        worker_params_analisis = params_analisis
+                        worker_ruta_audio = ruta
+
+                    render = Render(worker_analisis, estilo, params)
+                    c_idx = max(0, min(cuadro, worker_analisis.n_cuadros - 1))
+                    cuadro_rgba = render.cuadro(c_idx)
+
+                    res = _ResultadoRender(
+                        id_tarea=id_tarea,
+                        analisis=worker_analisis,
+                        render=render,
+                        params_analisis=worker_params_analisis,
+                        cuadro_rgba=cuadro_rgba,
+                        error=None,
+                        callback=tarea.callback,
+                    )
+                except Exception as e:
+                    res = _ResultadoRender(
+                        id_tarea=id_tarea,
+                        analisis=worker_analisis,
+                        render=None,
+                        params_analisis=worker_params_analisis,
+                        cuadro_rgba=None,
+                        error=e,
+                        callback=tarea.callback,
+                    )
+
+                self._cola_resultados.put(res)
+                try:
+                    self.root.after_idle(self._procesar_resultados_worker)
+                except Exception:
+                    pass
+            finally:
+                self._worker_ocupado = False
+
+    def _procesar_resultados_worker(self) -> None:
+        """Procesa en el hilo principal de Tkinter los resultados despachados por el worker."""
+        try:
+            if not self.root.winfo_exists():
+                return
+        except Exception:
+            return
+
+        ultimo_res: _ResultadoRender | None = None
+        while True:
+            try:
+                res = self._cola_resultados.get_nowait()
+                if res.id_tarea >= self._id_render_mostrado:
+                    if ultimo_res is None or res.id_tarea > ultimo_res.id_tarea:
+                        ultimo_res = res
+            except queue.Empty:
+                break
+
+        if ultimo_res is None:
+            if not self._worker_ocupado and self._cola_worker.empty() and self._cola_resultados.empty():
+                self._desactivar_estado_computo()
+            return
+
+        if ultimo_res.error is not None:
+            self._ultimo_error = str(ultimo_res.error)
+            if not self._worker_ocupado and self._cola_worker.empty() and self._cola_resultados.empty():
+                self._desactivar_estado_computo()
+            if ultimo_res.callback:
+                ultimo_res.callback()
+            return
+
+        if ultimo_res.id_tarea >= self._id_render_mostrado:
+            self._id_render_mostrado = ultimo_res.id_tarea
+            if ultimo_res.analisis is not None:
+                self._analisis = ultimo_res.analisis
+                self._params_analisis_previo = ultimo_res.params_analisis
+                try:
+                    if self.scale_tiempo.winfo_exists():
+                        self.scale_tiempo.config(to=max(0, self._analisis.n_cuadros - 1))
+                except Exception:
+                    pass
+            if ultimo_res.render is not None:
+                self._render = ultimo_res.render
+
+            if ultimo_res.cuadro_rgba is not None:
+                self._cuadro_raw_actual = ultimo_res.cuadro_rgba
+                self._proyectar_en_canvas(ultimo_res.cuadro_rgba)
+                self._actualizar_indicador_tiempo()
+
+        # Si el worker no tiene más tareas pendientes en cola, desactivar feedback visual
+        if not self._worker_ocupado and self._cola_worker.empty() and self._cola_resultados.empty():
+            self._desactivar_estado_computo()
+
+        if ultimo_res.callback:
+            ultimo_res.callback()
+
+    def esperar_render_async(self, timeout: float = 2.0) -> bool:
+        """Espera a que el worker complete tareas pendientes. Útil para tests y sincronización."""
+        t_limite = time.perf_counter() + timeout
+        while time.perf_counter() < t_limite:
+            try:
+                self._procesar_resultados_worker()
+                self.root.update_idletasks()
+            except Exception:
+                break
+            if not self._worker_ocupado and self._cola_worker.empty() and self._cola_resultados.empty():
+                time.sleep(0.01)
+                try:
+                    self._procesar_resultados_worker()
+                    self.root.update_idletasks()
+                except Exception:
+                    break
+                if not self._worker_ocupado and self._cola_worker.empty() and self._cola_resultados.empty():
+                    self._desactivar_estado_computo()
+                    return True
+            time.sleep(0.005)
+        return False
 
     def _actualizar_vista_previa(self) -> None:
-        self._timer_debounce = None
-        self._actualizar_vista_previa_inmediata()
+        """Actualiza la vista previa solicitando render asíncrono al worker."""
+        if self._timer_debounce is not None:
+            try:
+                self.root.after_cancel(self._timer_debounce)
+            except Exception:
+                pass
+            self._timer_debounce = None
+        self._solicitar_render_async()
 
     def _actualizar_vista_previa_inmediata(self) -> None:
         """Genera el cuadro actual mediante Render.cuadro(i) y lo proyecta."""
         if self._analisis is None or self._ruta_audio is None:
             return
+
+        # Invalidar renders asíncronos previos en vuelo y desactivar feedback
+        self._secuencia_render += 1
+        self._id_render_mostrado = self._secuencia_render
+        self._desactivar_estado_computo()
 
         params = self.obtener_parametros()
         params_analisis = self._extraer_params_analisis(params)
@@ -767,10 +1162,20 @@ class VentanaVisualizador:
         img_tk = ImageTk.PhotoImage(base)
         self._imagen_tk_referencia = img_tk
 
-        self.canvas_preview.delete("all")
         x = cw // 2
         y = ch // 2
-        self.canvas_preview.create_image(x, y, image=img_tk, anchor="center")
+
+        # Preservación de fotograma previo (Ghost frame / Never blank):
+        # Dibujamos el nuevo cuadro y luego removemos el anterior para evitar
+        # cualquier cuadro negro o parpadeo intermedio en el canvas.
+        item_nuevo = self.canvas_preview.create_image(x, y, image=img_tk, anchor="center", tags="canvas_imagen")
+        for item_id in self.canvas_preview.find_withtag("canvas_imagen"):
+            if item_id != item_nuevo:
+                self.canvas_preview.delete(item_id)
+        self.canvas_preview.delete("mensaje_espera")
+
+        if hasattr(self, "_badge_actualizando") and self._badge_visible:
+            self._badge_actualizando.lift()
 
     def _al_redimensionar_canvas(self, event: Any = None) -> None:
         if self._cuadro_raw_actual is not None:
@@ -788,6 +1193,7 @@ class VentanaVisualizador:
             fill="#71717A",
             font=("TkDefaultFont", 11),
             justify="center",
+            tags="mensaje_espera",
         )
 
     def _al_mover_escala_tiempo(self, valor_str: str) -> None:
@@ -1109,8 +1515,32 @@ class VentanaVisualizador:
     # ----------------------------------------------------------------------- #
 
     def _al_cerrar_ventana(self) -> None:
-        """Manejador de WM_DELETE_WINDOW para liberar recursos y cerrar subprocesos."""
+        """Manejador de WM_DELETE_WINDOW para liberar recursos y cerrar subprocesos e hilos."""
         self.detener_reproduccion()
+        if self._timer_debounce is not None:
+            try:
+                self.root.after_cancel(self._timer_debounce)
+            except Exception:
+                pass
+            self._timer_debounce = None
+        if self._timer_badge_gracia is not None:
+            try:
+                self.root.after_cancel(self._timer_badge_gracia)
+            except Exception:
+                pass
+            self._timer_badge_gracia = None
+        if hasattr(self, "_timer_chequeo_resultados") and self._timer_chequeo_resultados is not None:
+            try:
+                self.root.after_cancel(self._timer_chequeo_resultados)
+            except Exception:
+                pass
+            self._timer_chequeo_resultados = None
+        self._ocultar_badge_actualizando()
+        self._evento_cerrar_worker.set()
+        try:
+            self._cola_worker.put_nowait(None)
+        except Exception:
+            pass
         if hasattr(self, "_reproductor") and self._reproductor is not None:
             self._reproductor.cerrar()
         if self._dialogo_progreso and self._dialogo_progreso.winfo_exists():
@@ -1118,7 +1548,11 @@ class VentanaVisualizador:
         self.root.destroy()
 
     def _al_salir_proceso(self) -> None:
-        """Hook atexit para garantizar terminación absoluta de cualquier proceso ffplay."""
+        """Hook atexit para garantizar terminación absoluta de cualquier proceso ffplay o hilo."""
+        try:
+            self._evento_cerrar_worker.set()
+        except Exception:
+            pass
         try:
             if hasattr(self, "_reproductor") and self._reproductor is not None:
                 self._reproductor.cerrar()
