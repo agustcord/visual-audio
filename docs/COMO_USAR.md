@@ -1,150 +1,87 @@
-# Cómo usar el visualizador
+# Cómo usar el visualizador de audio
 
-Guía de uso para Drift **0.6.0**, que es la versión publicada y la que tenés instalada.
+Guía de uso para **Drift 0.6.0** (la versión publicada e instalada).
 
-> **Por qué hay dos pasos y no uno.** Drift 0.6.0 **no soporta video con canal alpha**: si le das un archivo transparente, descarta el alpha y compone el clip como un rectángulo negro. Verificado, con evidencia, en `POC_RESULTADOS.md`. El soporte existe en la rama de desarrollo de Drift (0.7.0, sin publicar todavía). Hasta que salga, la transparencia la resuelve Drift con una herramienta que ya tiene: un modo de fusión, o el efecto Chroma Key.
+> **Sobre la transparencia y Drift:**  
+> Drift 0.6.0 **no soporta video con canal alpha** en su timeline (al importar video transparente lo procesa con fondo negro). Por esta razón, el método de composición estándar, verificado y más liviano es generar sobre **fondo negro** y aplicar el modo de fusión **Trama (Screen)** en Drift. Cuando esté disponible Drift 0.7.0, el modo `transparente` ya está implementado en la herramienta y listo para usarse directamente.
 
 ---
 
-## Lo más simple: fondo negro + fusión Trama
+## 1. Cómo abrir la aplicación
 
-Dos comandos y un menú.
+Hacé **doble clic** en el archivo:
 
-### 1. Generar
-
-```powershell
-python tools\generar_overlay.py "mi_cancion.mp3" -o "onda.webm" --lienzo 1920x1080
+```
+visualizador.bat
 ```
 
-Eso produce `onda.webm`: la onda en blanco sobre fondo negro, del tamaño exacto del proyecto, con la banda abajo.
+en la raíz del proyecto.
 
-### 2. En Drift
-
-1. Importá `onda.webm` y ponelo en una pista **por encima** del video.
-2. Con el clip seleccionado, poné el modo de fusión en **Trama**.
-
-Listo. El negro desaparece porque en modo Trama el negro no aporta nada, y queda la onda sobre el video.
-
-### Lo que hay que saber de este método
-
-- **Aclara la imagen** donde está la onda. Es inherente al modo Trama.
-- **Sobre partes claras del video la onda se pierde.** Si tu material es luminoso, usá el método de Chroma Key.
-- A cambio: no hay efectos que agregar, no hay nada que ajustar, y no hay bordes sucios.
+El lanzador abre directamente la interfaz gráfica utilizando `pythonw.exe`, de modo que **no queda ninguna ventana de consola negra abierta de fondo**.
 
 ---
 
-## Para que funcione sobre cualquier fondo: Chroma Key
+## 2. Flujo de trabajo principal (Interfaz Gráfica)
 
-Da transparencia de verdad y no altera los colores, a cambio de un paso más.
+La aplicación está diseñada para que puedas generar tus visualizadores sin necesidad de programar ni usar la terminal:
 
-### 1. Generar con fondo de color
+1. **Cargar audio:** Hacé clic en el botón superior *"Cargar audio"* y seleccioná tu canción (`.mp3`, `.wav`, `.flac`, etc.).
+2. **Vista previa inmediata:** De inmediato verás en el visor la onda generada con el preset por defecto.
+3. **Navegar la pista:** Usá la barra de tiempo inferior para desplazarte por la música (scrubbing), o presioná *"Probar fragmento (2s)"* para ver la animación en tiempo real.
+4. **Elegir estilo:** Seleccioná entre **Barras**, **Barras espejadas** u **Onda**.
+5. **Personalizar valores:** Modificá sensibilidad, suavizado, número de barras, colores, resplandor (*glow*), reflejo y redondeo. La vista previa refleja cada cambio al instante.
+6. **Compensación de color (`compensar_fondo`):** Si tu video en Drift tiene un fondo oscuro o con tono (por ejemplo `#101827`), ingresá ese color en el campo `compensar_fondo`. El motor ajustará automáticamente los tonos para que en la fusión Trama se vea exactamente el color que elegiste.
+7. **Presets:** Podés seleccionar presets de fábrica (`barras_blancas`, `barras_neon`, `espejadas_frecuencia`, `onda_suave`) o guardar tus propios proyectos.
+8. **Exportar video:** Presioná *"Exportar video"*, elegí el nombre de archivo `.webm` y aguardá la finalización (podés cancelar en cualquier momento de manera limpia).
+
+---
+
+## 3. Composición en Drift (Modo Trama)
+
+El flujo de integración en Drift toma dos clics:
+
+1. Abrí Drift e importá el archivo `.webm` que exportaste.
+2. Colocá el clip en una pista **por encima** de tu pista de video musical.
+3. En las propiedades del clip, cambiá el modo de fusión a **Trama** (*Screen*).
+
+**Resultado:** El fondo negro desaparece de forma matemáticamente exacta y la onda queda superpuesta sobre el video musical, sin halos ni bordes extraños.
+
+### ¿Cuándo usar Chroma Key?
+Si tu video de fondo es extremadamente luminoso o blanco, el modo Trama se fundirá con el fondo. En ese caso:
+1. En el visualizador, configurá **Fondo** en `color` y seleccioná un tono de contraste (ej. Magenta `#FF00FF`).
+2. En Drift, mantené el modo de fusión en *Normal*, agregá el efecto **Chroma Key** (`key.chroma`) y ajustá el tono a 300° con tolerancia adecuada.
+
+---
+
+## 4. Apéndice: Comandos por consola (CLI)
+
+Para automatizaciones o scripts por lotes, podés usar `visualizador.bat` o el módulo de Python:
 
 ```powershell
-python tools\generar_overlay.py "mi_cancion.mp3" -o "onda.webm" --lienzo 1920x1080 `
-    --fondo color --color-fondo "#FF00FF" --color "#00E5FF"
+# Listar estilos, presets y parámetros disponibles
+visualizador.bat --listar
+
+# Renderizar un archivo con valores por defecto
+visualizador.bat tests\fixtures\pista_espectro.wav -o build\onda.webm
+
+# Renderizar aplicando un preset de fábrica
+visualizador.bat tests\fixtures\pista_espectro.wav --preset barras_neon -o build\onda_neon.webm
+
+# Obtener ayuda de todas las opciones CLI
+visualizador.bat --help
 ```
 
-**Elegí el color de fondo lejos del color de la onda.** El Chroma Key de Drift recorta por **tono**, así que si los dos tonos están cerca se va a comer parte del dibujo. Con la onda cian (`#00E5FF`, tono ~186°), el magenta (`#FF00FF`, tono 300°) queda a 114° de distancia; el verde quedaría a sólo 66°.
-
-Referencia rápida de tonos:
-
-| Color | Hex | Tono |
-|---|---|---|
-| Rojo | `#FF0000` | 0° |
-| Verde | `#00FF00` | 120° |
-| Cian | `#00FFFF` | 180° |
-| Azul | `#0000FF` | 240° |
-| Magenta | `#FF00FF` | 300° |
-
-### 2. En Drift
-
-1. Importá el archivo y ponelo en una pista **por encima** del video. Modo de fusión **Normal**.
-2. Agregale el efecto **Chroma Key** (categoría *keying*).
-3. Ajustá **Key Colour** al tono de tu fondo: **300** para magenta, 120 para verde.
-4. Subí **Tolerance** hasta que el fondo desaparezca.
-5. Si quedan bordes de color, subí **Edge Softness** y **Spill Removal**.
-
-### Lo que hay que saber de este método
-
-- Puede dejar un **borde teñido** alrededor de la onda. Se ataca con Edge Softness y Spill Removal.
-- Si el tono de la onda queda cerca del tono del fondo, **el recorte se come parte del dibujo**. Por eso importa elegir bien los colores.
-
 ---
 
-## Cómo se ven las dos
+## 5. Verificación del sistema
 
-![Trama arriba, Chroma Key abajo](evidencia/T4_trama_vs_chromakey.png)
-
-Arriba con fusión Trama, abajo con Chroma Key, sobre el mismo fondo. Prácticamente indistinguibles cuando la onda está sobre una zona oscura. La diferencia aparece sobre zonas claras, donde Trama se lava y Chroma Key no.
-
-Son simulaciones hechas con FFmpeg, no capturas de Drift: sirven para ver el resultado esperado.
-
----
-
-## Personalizar
-
-De las cinco personalizaciones que pediste, **tres las hace Drift** con sus propios controles, sobre el clip ya colocado:
-
-| | Dónde |
-|---|---|
-| **Tamaño** | Transform del clip en Drift. Keyframable |
-| **Posición** | Transform del clip en Drift, o `--posicion` / `--margen` al generar |
-| **Opacidad** | Propiedad Opacity del clip en Drift. Keyframable |
-| **Color** | `--color` al generar |
-| **Velocidad** | Speed curve del clip en Drift |
-
-### Opciones del generador
+Para comprobar que el motor, el render y la sincronía estén funcionando correctamente:
 
 ```powershell
-# Ver todo
-python tools\generar_overlay.py --help
-```
-
-Las que más vas a usar:
-
-| Opción | Qué hace |
-|---|---|
-| `--color "#RRGGBB"` | Color de la onda |
-| `--lienzo 1920x1080` | Genera el cuadro completo del proyecto. **Usalo siempre**: evita que Drift tenga que escalar o rellenar |
-| `--posicion {arriba,centro,abajo}` | Dónde va la banda. Default: abajo |
-| `--margen PX` | Separación del borde |
-| `--alto PX` | Alto de la banda de onda. Default 320 |
-| `--modo {cline,p2p,line,point}` | Forma del dibujo. `cline` es simétrica, `p2p` un contorno fino |
-| `--escala {sqrt,lin,cbrt,log}` | Cuánto se levantan los pasajes suaves. `sqrt` es un buen punto medio |
-| `--fps` | Default 30. Bajalo a 24 si querés archivos más chicos |
-| `--crf` | Calidad. Más alto = más chico. Default 36 |
-
-### Si el archivo pesa mucho
-
-Un tema real: el overlay pesa bastante porque cada cuadro de la onda es un dibujo nuevo y la compresión de video no puede predecirlo. Palancas, de mayor a menor efecto:
-
-1. `--alto 200` — una banda más baja tiene menos que dibujar.
-2. `--fps 24`.
-3. `--crf 44`.
-
-Dato medido sobre 16 segundos a 1920×1080: fondo negro 5,5 MB, fondo de color 3,2 MB. El mismo material con canal alpha pesaba 11,7 MB — así que el camino que funciona en tu versión es además **el más liviano**.
-
----
-
-## Cuando salga Drift 0.7.0
-
-Va a soportar canal alpha, y entonces desaparece el paso extra:
-
-```powershell
-python tools\generar_overlay.py "mi_cancion.mp3" -o "onda.webm" --lienzo 1920x1080 --fondo transparente
-```
-
-Importás, ponés encima, y listo — sin modo de fusión ni Chroma Key. La opción ya está implementada y verificada; sólo falta que la versión de Drift la soporte.
-
----
-
-## Verificar que todo está bien
-
-El generador se verifica solo al terminar y devuelve error si algo falla. Además:
-
-```powershell
-# La onda está sincronizada con la música
+python tests\test_analisis.py
+python tests\test_render.py --export
 python tests\verificar_sincronia.py
+python tests\test_proyecto.py
+python tests\test_gui.py
+python tests\test_lanzador.py
 ```
-
-Si esa prueba falla, algo se rompió en el generador y **no** hay que confiar en los archivos que produzca.

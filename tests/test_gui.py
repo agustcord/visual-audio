@@ -208,10 +208,8 @@ def criterio_5_4_concurrencia_y_cancelacion(tmp_dir: Path) -> None:
     try:
         with patch("tkinter.messagebox.showinfo"), patch("tkinter.messagebox.showwarning"), patch("tkinter.messagebox.showerror"):
             app.cargar_audio(PISTA)
-            app.obtener_variable("lienzo_ancho").set(480)
-            app.obtener_variable("lienzo_alto").set(270)
-            app.obtener_variable("ancho").set(480)
-            app.obtener_variable("alto").set(80)
+            app.obtener_variable("lienzo_ancho").set(960)
+            app.obtener_variable("lienzo_alto").set(540)
             app._actualizar_vista_previa_inmediata()
             root.update()
 
@@ -225,10 +223,12 @@ def criterio_5_4_concurrencia_y_cancelacion(tmp_dir: Path) -> None:
 
             app.exportar_video_async(ruta_salida, callback_finalizado=cb_fin)
 
-            # Esperar a que arranque el subproceso y codifique algunos cuadros
-            for _ in range(6):
+            # Esperar a que arranque el subproceso y el hilo esté activo
+            for _ in range(30):
                 root.update()
-                time.sleep(0.05)
+                if getattr(app, "_hilo_export", None) and app._hilo_export.is_alive():
+                    break
+                time.sleep(0.01)
 
             # Cancelar exportación
             app.cancelar_exportacion()

@@ -1,3 +1,12 @@
+---
+tipo: "handoff"
+turno: "T18"
+fecha: 2026-09-26
+agente: "Ani Arquitecta"
+tema: "Triage de Fase 1 Core: Plan estructurado para la Etapa 6 (Lanzador visualizador.bat, documentación de usuario y cierre del MVP)"
+commit: "pendiente de Gate del Capitán y ejecución técnica"
+---
+
 # Plan de Implementación — Etapa 6: Lanzador visualizador.bat, Documentación de Usuario y Cierre del MVP
 
 ## 📌 Pedido Original del Capitán (textual)

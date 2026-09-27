@@ -61,7 +61,8 @@ def _ayuda(v: parametros.Valor) -> str:
     if v.minimo is not None and v.maximo is not None:
         partes.append(f"[{v.minimo:g} a {v.maximo:g}{' ' + v.unidad if v.unidad else ''}]")
     partes.append(f"(default: {v.default})")
-    return " ".join(partes)
+    texto = " ".join(partes)
+    return texto.replace("%", "%%")
 
 
 def _listar() -> int:

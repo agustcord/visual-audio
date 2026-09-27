@@ -39,6 +39,8 @@ relacionado: ["index"]
 | T15 | [[T15_etapa4_proyectos_presets_compensacion_20260926]] | 2026-09-26 | **Etapa 4 cerrada: Proyectos, presets y compensación de color implementados y verificados**. 127 comprobaciones automáticas en verde (0 fallas). |
 | T16 | [[plan_etapa5_interfaz_grafica_tkinter_20260926]] | 2026-09-26 | **Triage de Fase 1 Core**: Verificación factual del punto de partida (127 pruebas en verde) y plan estructurado para la Etapa 5 (Interfaz gráfica Tkinter). Sin código de producto. |
 | T17 | [[T17_etapa5_interfaz_grafica_tkinter_20260926]] | 2026-09-26 | **Etapa 5 cerrada: Interfaz gráfica Tkinter implementada, verificada y registrada**. Layout desacoplado, formulario dinámico polimórfico desde ESQUEMA, invarianza MVP-5, transporte, scrubbing, animación de fragmento, exportación multihilo con queue thread-safe y cancelación limpia. 169 comprobaciones automáticas en verde (0 fallas). |
+| T18 | [[plan_etapa6_lanzador_documentacion_20260926]] | 2026-09-26 | **Triage de Fase 1 Core**: Plan estructurado para la Etapa 6 (Lanzador `visualizador.bat`, documentación de usuario y cierre del MVP). Sin código de producto. |
+| T19 | [[T19_etapa6_lanzador_bat_documentacion_20260926]] | 2026-09-26 | **Etapa 6 cerrada: Lanzador visualizador.bat, documentación de usuario y cierre del MVP**. Lanzador .bat con pythonw sin consola negra, entrypoint canónico __main__.py, guías de usuario (GUIA_DE_USO.md y COMO_USAR.md reescrita), RUTA_DE_TRABAJO §1 y RETOMAR.md sincronizados, y suite test_lanzador.py (44 comprobaciones). Suite total: 213 comprobaciones en verde (0 fallas). |
 
 ## Qué debe contener un handoff
 
