@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "estilo": "onda",
+  "params": {
+    "color": "#00FFCC",
+    "grosor_linea": 4,
+    "relleno": true,
+    "degradado": "altura"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "estilo": "barras",
+  "params": {
+    "color": "#00E5FF",
+    "color_final": "#0050DC",
+    "degradado": "altura",
+    "resplandor": 0.3,
+    "reflejo": 0.2
+  }
+}

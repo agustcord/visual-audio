@@ -39,6 +39,15 @@ class Render:
         self.p = parametros.validar(params or {}, self.estilo.id,
                                     permitir_desconocidos=True)
 
+        fondo_comp = self.p.get("compensar_fondo", "#000000")
+        if fondo_comp != "#000000":
+            if "color" in self.p:
+                comp, _ = parametros.compensar_color(self.p["color"], fondo_comp)
+                self.p["color"] = comp
+            if "color_final" in self.p and parametros.tiene_efecto(self.p, "color_final"):
+                comp_final, _ = parametros.compensar_color(self.p["color_final"], fondo_comp)
+                self.p["color_final"] = comp_final
+
         self.tamano = (int(self.p["lienzo_ancho"]), int(self.p["lienzo_alto"]))
         self.caja = Caja(
             x=int(self.p["x"]), y=int(self.p["y"]),

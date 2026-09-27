@@ -16,8 +16,11 @@ es el documento que gobierna. Este archivo es su implementación.
 from __future__ import annotations
 
 import re
+import warnings
 from dataclasses import dataclass
 from typing import Any
+
+import numpy as np
 
 
 class ErrorDeParametro(ValueError):
@@ -32,6 +35,83 @@ def a_rgb(color: str) -> tuple[int, int, int]:
     if not RE_COLOR.match(color):
         raise ErrorDeParametro(f"color inválido: {color!r}. Se espera '#RRGGBB'.")
     return int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
+
+
+def a_rgb01(hexa: str) -> np.ndarray:
+    """Convierte '#RRGGBB' a array float64 en 0..1."""
+    rgb = a_rgb(hexa)
+    return np.array(rgb, dtype=np.float64) / 255.0
+
+
+def a_hex(rgb01: np.ndarray) -> str:
+    """Convierte array float64 en 0..1 a '#RRGGBB'."""
+    v = np.clip(np.rint(np.asarray(rgb01) * 255.0), 0, 255).astype(int)
+    return "#{:02X}{:02X}{:02X}".format(*v)
+
+
+def trama(base: np.ndarray, src: np.ndarray) -> np.ndarray:
+    """Fusión Trama de Drift: out = 1.0 - (1.0 - base) * (1.0 - src)."""
+    return 1.0 - (1.0 - np.asarray(base, dtype=np.float64)) * (1.0 - np.asarray(src, dtype=np.float64))
+
+
+def es_color_alcanzable(deseado_hex: str, fondo_hex: str) -> bool:
+    """Determina si deseado es alcanzable sobre fondo con Trama (D >= B en cada canal)."""
+    d = a_rgb01(deseado_hex)
+    b = a_rgb01(fondo_hex)
+    return bool(np.all(d >= b - 1e-9))
+
+
+def compensar_color(deseado_hex: str, fondo_hex: str) -> tuple[str, bool]:
+    """Calcula qué color dibujar para que Trama sobre fondo dé deseado.
+
+    Fórmula: src = 1.0 - (1.0 - deseado) / (1.0 - fondo)
+    Devuelve (color_compensado_hex, alcanzable).
+    Si no es alcanzable (D < B en algún canal), emite una advertencia explícita.
+    """
+    if fondo_hex.upper() == "#000000":
+        return deseado_hex, True
+
+    d = a_rgb01(deseado_hex)
+    b = a_rgb01(fondo_hex)
+    resto = 1.0 - b
+
+    alcanzable = bool(np.all(d >= b - 1e-9))
+    if not alcanzable:
+        canales = ["R", "G", "B"]
+        fallos = [canales[i] for i in range(3) if d[i] < b[i] - 1e-9]
+        warnings.warn(
+            f"Color {deseado_hex} no es alcanzable sobre fondo {fondo_hex} "
+            f"(D < B en canal(es): {', '.join(fallos)}). Se recortó para evitar desbalance.",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        src = np.where(resto > 1e-9, 1.0 - (1.0 - d) / resto, 1.0)
+    src_clip = np.clip(src, 0.0, 1.0)
+    return a_hex(src_clip), alcanzable
+
+
+def a_lab(rgb01: np.ndarray) -> np.ndarray:
+    """sRGB → CIE Lab con blanco D65."""
+    c = np.asarray(rgb01, dtype=np.float64)
+    lin = np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
+    m = np.array([
+        [0.4124564, 0.3575761, 0.1804375],
+        [0.2126729, 0.7151522, 0.0721750],
+        [0.0193339, 0.1191920, 0.9503041],
+    ])
+    xyz = m @ lin / np.array([0.95047, 1.0, 1.08883])
+    d = 6.0 / 29.0
+    f = np.where(xyz > d ** 3, np.cbrt(xyz), xyz / (3 * d * d) + 4.0 / 29.0)
+    return np.array([116 * f[1] - 16, 500 * (f[0] - f[1]), 200 * (f[1] - f[2])])
+
+
+def delta_e(a_rgb: np.ndarray | str, b_rgb: np.ndarray | str) -> float:
+    """Distancia perceptual CIE Lab ΔE76 entre dos colores sRGB."""
+    a = a_rgb01(a_rgb) if isinstance(a_rgb, str) else np.asarray(a_rgb)
+    b = a_rgb01(b_rgb) if isinstance(b_rgb, str) else np.asarray(b_rgb)
+    return float(np.linalg.norm(a_lab(a) - a_lab(b)))
 
 
 @dataclass(frozen=True)
@@ -313,6 +393,12 @@ ESQUEMA: dict[str, Valor] = {
         tipo=float, default=0.0, minimo=0.0, maximo=1.0, grupo="color",
         ayuda="Copia atenuada debajo del dibujo, como sobre un piso brillante. Es "
               "la opacidad del reflejo: en 0 está apagado.",
+    ),
+    "compensar_fondo": Valor(
+        etiqueta="Compensar fondo",
+        tipo=str, default="#000000", grupo="color", formato="color",
+        ayuda="Color del video detrás de las barras para compensar el aclarado "
+              "de la fusión Trama de Drift. En #000000 está apagado y no modifica nada.",
     ),
 
     # ---- Salida ------------------------------------------------------------

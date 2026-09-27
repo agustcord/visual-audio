@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "estilo": "espejadas",
+  "params": {
+    "color": "#FF007F",
+    "color_final": "#7F00FF",
+    "degradado": "ancho",
+    "redondeo": 50.0
+  }
+}

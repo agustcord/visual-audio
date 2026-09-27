@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "estilo": "barras",
+  "params": {
+    "color": "#FFFFFF",
+    "degradado": "ninguno",
+    "fondo": "negro"
+  }
+}
