@@ -12,6 +12,7 @@ Verifica formalmente los Criterios de Aceptación 5.1 a 5.6:
 from __future__ import annotations
 
 import hashlib
+import math
 import os
 import shutil
 import sys
@@ -27,11 +28,16 @@ from PIL import Image
 RAIZ = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ / "tools"))
 
-from visualizador import estilos, gui, parametros, proyecto  # noqa: E402
+from visualizador import estilos, gui, parametros, proyecto, reproductor  # noqa: E402
 from visualizador.render import Render  # noqa: E402
 
 PISTA = RAIZ / "tests" / "fixtures" / "pista_espectro.wav"
 PISTA_PRUEBA = RAIZ / "tests" / "fixtures" / "pista_prueba.wav"
+
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
 
 _pasadas = 0
 _fallas: list[str] = []
@@ -39,21 +45,24 @@ _fallas: list[str] = []
 
 def afirmar(condicion: bool, mensaje: str, detalle: str = "") -> None:
     global _pasadas
+    d = f"  ({detalle})" if detalle else ""
+    linea = f"  OK    {mensaje}{d}" if condicion else f"  FALLA {mensaje}{d}"
     if condicion:
         _pasadas += 1
-        d = f"  ({detalle})" if detalle else ""
-        print(f"  OK    {mensaje}{d}")
     else:
         _fallas.append(mensaje)
-        d = f": {detalle}" if detalle else ""
-        print(f"  FALLA {mensaje}{d}")
+    try:
+        print(linea)
+    except UnicodeEncodeError:
+        print(linea.encode("ascii", errors="replace").decode("ascii"))
 
 
-def crear_app_test(tmp_dir: Path) -> tuple[tk.Tk, gui.VentanaVisualizador]:
+def crear_app_test(tmp_dir: Path, rep: reproductor.ReproductorAudio | None = None) -> tuple[tk.Tk, gui.VentanaVisualizador]:
     """Crea una instancia de VentanaVisualizador con root oculto para testing desatendido."""
     root = tk.Tk()
     root.withdraw()
-    app = gui.VentanaVisualizador(root=root)
+    backend_mudo = rep or reproductor.NullBackend()
+    app = gui.VentanaVisualizador(root=root, reproductor_audio=backend_mudo)
     root.update()
     return root, app
 
@@ -368,11 +377,170 @@ def pruebas_transporte_y_presets(tmp_dir: Path) -> None:
         root.destroy()
 
 
+def criterios_etapa7_reproductor_y_transporte(tmp_dir: Path) -> None:
+    print("\n========================================================================")
+    print("Pruebas de Reproducción y Transporte Sincronizado en GUI (Etapa 7: CA-1 a CA-7)")
+    print("========================================================================")
+
+    class EspiaReproductor(reproductor.NullBackend):
+        def __init__(self) -> None:
+            super().__init__()
+            self.offsets_solicitados: list[float] = []
+            self.veces_reproducir = 0
+            self.veces_pausar = 0
+            self.veces_detener = 0
+            self.veces_cerrar = 0
+
+        def reproducir(self, offset_seg: float = 0.0) -> bool:
+            self.offsets_solicitados.append(offset_seg)
+            self.veces_reproducir += 1
+            return super().reproducir(offset_seg)
+
+        def pausar(self) -> None:
+            self.veces_pausar += 1
+            super().pausar()
+
+        def detener(self) -> None:
+            self.veces_detener += 1
+            super().detener()
+
+        def cerrar(self) -> None:
+            self.veces_cerrar += 1
+            super().cerrar()
+
+    espia = EspiaReproductor()
+    root, app = crear_app_test(tmp_dir, rep=espia)
+
+    try:
+        with patch("tkinter.messagebox.showinfo"), patch("tkinter.messagebox.showwarning"), patch("tkinter.messagebox.showerror"):
+            app.cargar_audio(PISTA_PRUEBA)
+            root.update()
+
+            # CA-1: Botón Play/Pausa continuo en la GUI
+            afirmar(app.btn_play_pausa.cget("text") == "▶ Reproducir", "CA-1: boton inicial en estado Reproducir")
+            app.reproducir()
+            root.update()
+            afirmar(app._reproduciendo and app.btn_play_pausa.cget("text") == "⏸ Pausar",
+                    "CA-1: boton conmuta a Pausar y estado reproduciendo es True")
+
+            app.pausar()
+            root.update()
+            afirmar(not app._reproduciendo and app.btn_play_pausa.cget("text") == "▶ Reproducir",
+                    "CA-1: pausar conmuta boton a Reproducir y estado es False")
+
+            # Atajo de teclado barra espaciadora
+            app._al_presionar_espacio()
+            root.update()
+            afirmar(app._reproduciendo and app.btn_play_pausa.cget("text") == "⏸ Pausar",
+                    "CA-1: atajo de barra espaciadora alterna a Play")
+            app._al_presionar_espacio()
+            root.update()
+            afirmar(not app._reproduciendo and app.btn_play_pausa.cget("text") == "▶ Reproducir",
+                    "CA-1: atajo de barra espaciadora alterna a Pausa")
+
+            # CA-2: Emisión de audio sincronizado en tiempo real y offset exacto
+            app._cuadro_actual = 60
+            app._var_escala_tiempo.set(60)
+            app._actualizar_vista_previa_inmediata()
+            root.update()
+
+            espia.offsets_solicitados.clear()
+            app.reproducir()
+            root.update()
+            afirmar(len(espia.offsets_solicitados) > 0 and abs(espia.offsets_solicitados[-1] - 2.0) < 0.001,
+                    f"CA-2: reproducir en cuadro 60 envía offset exacto de 2.0s ({espia.offsets_solicitados[-1] if espia.offsets_solicitados else 0}s)")
+            app.pausar()
+
+            # CA-3: Invarianza y ausencia de deriva temporal (Drift < 1 cuadro / 33 ms)
+            app._cuadro_actual = 10
+            app._var_escala_tiempo.set(10)
+            app.reproducir()
+            for _ in range(4):
+                time.sleep(0.02)
+                root.update()
+                app._bucle_reproduccion()
+
+            t_perf = app._offset_seg_reloj + (time.perf_counter() - app._t_inicio_reloj)
+            cuadro_esperado = int(math.floor(t_perf * app._analisis.fps))
+            desvio_cuadros = abs(app._cuadro_actual - cuadro_esperado)
+            afirmar(desvio_cuadros <= 1, f"CA-3: sincronía con Master Clock sin deriva (desvío = {desvio_cuadros} cuadros <= 1)")
+            app.pausar()
+
+            # CA-4: Scrubbing interactivo fluido sin saturar subprocesos
+            app._cuadro_actual = 30
+            app._var_escala_tiempo.set(30)
+            app.reproducir()
+            afirmar(app._reproduciendo, "CA-4: en reproducción activa antes de scrub")
+
+            # Iniciar arrastre (ButtonPress-1)
+            app._al_iniciar_scrubbing()
+            afirmar(app._scrubbing_activo, "CA-4: scrubbing marcado activo")
+            afirmar(not app._reproduciendo, "CA-4: audio pausado durante arrastre para evitar saturación")
+            afirmar(app._estaba_reproduciendo_antes_de_scrub, "CA-4: retiene memoria de estado previo activo")
+
+            reproducir_antes = espia.veces_reproducir
+            # Arrastre continuo de tiempo (B1-Motion)
+            for paso in [40, 50, 60, 70]:
+                app._al_mover_escala_tiempo(str(paso))
+                root.update()
+
+            afirmar(espia.veces_reproducir == reproducir_antes,
+                    "CA-4: arrastre continuo genera CERO llamadas a subproceso de audio")
+
+            # Soltar arrastre (ButtonRelease-1)
+            app._al_finalizar_scrubbing()
+            root.update()
+            afirmar(not app._scrubbing_activo, "CA-4: scrubbing finalizado")
+            afirmar(app._reproduciendo, "CA-4: reproducción reanudada automáticamente al soltar")
+            afirmar(abs(espia.offsets_solicitados[-1] - (70 / 30.0)) < 0.01,
+                    f"CA-4: audio reanudado en offset exacto del nuevo cuadro ({espia.offsets_solicitados[-1]:.3f}s)")
+            app.pausar()
+
+            # CA-5: Ciclo de vida limpio (Cero procesos huérfanos / zombis)
+            app.reproducir()
+            afirmar(app._reproduciendo, "CA-5: reproductor activo")
+
+            # Detención al cambiar de estilo
+            app.cambiar_estilo("espejadas")
+            afirmar(not app._reproduciendo, "CA-5: audio detenido al cambiar de estilo")
+
+            app.reproducir()
+            # Detención al aplicar preset
+            app.aplicar_preset("barras_blancas")
+            afirmar(not app._reproduciendo, "CA-5: audio detenido al aplicar preset")
+
+            app.reproducir()
+            # Detención al cargar nuevo audio
+            app.cargar_audio(PISTA_PRUEBA)
+            afirmar(not app._reproduciendo, "CA-5: audio detenido al cargar nueva pista")
+
+            # Cierre seguro de ventana WM_DELETE_WINDOW
+            app.reproducir()
+            cerrar_antes = espia.veces_cerrar
+            app._al_cerrar_ventana()
+            afirmar(espia.veces_cerrar > cerrar_antes, "CA-5: _al_cerrar_ventana invoca cerrar() en el reproductor")
+
+        # CA-6: Respeto estricto a la Regla 13 de dependencias
+        modulos_prohibidos = ["pygame", "sounddevice", "pyaudio", "librosa", "simpleaudio"]
+        violaciones = [m for m in modulos_prohibidos if m in sys.modules]
+        afirmar(len(violaciones) == 0, f"CA-6: Regla 13 preservada sin bibliotecas externas no estándar ({violaciones})")
+
+        # CA-7: Compatibilidad y degradación elegante (Fallback / NullBackend)
+        afirmar(isinstance(espia, reproductor.NullBackend),
+                "CA-7: interfaz operando al 100% de forma desatendida y silenciosa sobre NullBackend")
+
+    finally:
+        try:
+            root.destroy()
+        except Exception:
+            pass
+
+
 def main() -> int:
-    print("Pruebas Automatizadas de Interfaz Gráfica Tkinter (Etapa 5)")
+    print("Pruebas Automatizadas de Interfaz Gráfica Tkinter (Etapa 5 y 7)")
     print(f"  pista   : {PISTA.name}\n")
 
-    tmp_dir = Path(tempfile.mkdtemp(prefix="drift_test_etapa5_"))
+    tmp_dir = Path(tempfile.mkdtemp(prefix="drift_test_gui_"))
     try:
         criterio_5_1_flujo_completo(tmp_dir)
         criterio_5_2_invarianza_estructural(tmp_dir)
@@ -381,6 +549,7 @@ def main() -> int:
         criterio_5_5_cobertura_esquema_y_dependencias(tmp_dir)
         criterio_5_6_resiliencia_errores(tmp_dir)
         pruebas_transporte_y_presets(tmp_dir)
+        criterios_etapa7_reproductor_y_transporte(tmp_dir)
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 

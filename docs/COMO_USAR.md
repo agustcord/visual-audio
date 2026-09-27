@@ -27,7 +27,7 @@ La aplicación está diseñada para que puedas generar tus visualizadores sin ne
 
 1. **Cargar audio:** Hacé clic en el botón superior *"Cargar audio"* y seleccioná tu canción (`.mp3`, `.wav`, `.flac`, etc.).
 2. **Vista previa inmediata:** De inmediato verás en el visor la onda generada con el preset por defecto.
-3. **Navegar la pista:** Usá la barra de tiempo inferior para desplazarte por la música (scrubbing), o presioná *"Probar fragmento (2s)"* para ver la animación en tiempo real.
+3. **Reproducción de audio sincronizada y scrubbing:** Presioná el botón **"▶ Reproducir"** (o pulsá la **barra espaciadora**) para escuchar la canción y ver en tiempo real cómo bailan las ondas al ritmo del sonido de forma continua. Arrastrá la barra de tiempo para hacer scrubbing instantáneo con el mouse; al soltar, la música continúa en ese instante exacto.
 4. **Elegir estilo:** Seleccioná entre **Barras**, **Barras espejadas** u **Onda**.
 5. **Personalizar valores:** Modificá sensibilidad, suavizado, número de barras, colores, resplandor (*glow*), reflejo y redondeo. La vista previa refleja cada cambio al instante.
 6. **Compensación de color (`compensar_fondo`):** Si tu video en Drift tiene un fondo oscuro o con tono (por ejemplo `#101827`), ingresá ese color en el campo `compensar_fondo`. El motor ajustará automáticamente los tonos para que en la fusión Trama se vea exactamente el color que elegiste.

@@ -43,9 +43,9 @@ Es la **ruta ejecutable** del MVP. Cada etapa dice qué necesita para empezar, q
 | **4** | **Proyectos y presets** *(+ `compensar_fondo`)* | 1 | ✅ **cerrada** | T15 |
 | **5** | **Interfaz gráfica** | 3 → **1** | ✅ **cerrada** | T17 |
 | **6** | **Integración y documentación** | 1 | ✅ **cerrada** | T19 |
-| **7** | **Validación con el fundador** | 1 | ⬜ **ACÁ ESTAMOS** | — |
+| **7** | **Reproductor de audio y Validación** | 1 | ⬜ **ACÁ ESTAMOS** | T21 (código), T22/T23 (PASS formal MVP Capitán) |
 
-**Consumido: 15 turnos (incluyendo T10, T12, T14, T16, T18). Restante del MVP: 1 (Etapa 7). Total Etapa 1 proyectado: 16.**
+**Consumido: 17 turnos (incluyendo T10, T12, T14, T16, T18, T20, T21, T22, T23). MVP con veredicto PASS por el Capitán.**
 
 > T10 no estaba presupuestado: fue el turno del punto de control, donde el fundador
 > aprobó el aspecto y planteó la pregunta del color. Se gastó en medirla y

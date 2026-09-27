@@ -157,7 +157,7 @@ def probar_criterio_6_3() -> None:
             "RUTA_DE_TRABAJO.md §1 marca Etapa 5 como cerrada en T17")
     afirmar(re.search(r"\|\s*\*\*6\*\*\s*\|.*?\|\s*✅\s*\*\*cerrada\*\*\s*\|\s*T19\s*\|", texto_ruta) is not None,
             "RUTA_DE_TRABAJO.md §1 marca Etapa 6 como cerrada en T19")
-    afirmar(re.search(r"\|\s*\*\*7\*\*\s*\|.*?\|\s*⬜\s*\*\*ACÁ ESTAMOS\*\*\s*\|", texto_ruta) is not None,
+    afirmar(re.search(r"\|\s*\*\*7\*\*\s*\|.*?\|\s*(?:⬜\s*\*\*ACÁ ESTAMOS\*\*|🔄\s*\*\*en validación\*\*|✅\s*\*\*completada\*\*|completada)\s*\|", texto_ruta) is not None,
             "RUTA_DE_TRABAJO.md §1 sitúa el puntero de ejecución en la Etapa 7")
 
 

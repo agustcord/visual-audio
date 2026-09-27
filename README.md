@@ -15,7 +15,7 @@ El estado vivo y los detalles de continuidad están en **[`RETOMAR.md`](RETOMAR.
 ### Cómo abrirlo y probarlo
 
 1. **Interfaz Gráfica (Recomendado):**  
-   Hacé doble clic en **`visualizador.bat`** en la raíz del repositorio. Se abre inmediatamente la aplicación de escritorio sin consolas de fondo. Cargás tu canción, ves la onda predeterminada al instante, personalizás a gusto y exportás el video WebM.
+   Hacé doble clic en **`visualizador.bat`** en la raíz del repositorio. Se abre inmediatamente la aplicación de escritorio sin consolas de fondo. Cargás tu canción, escuchás la música con el reproductor sincronizado en tiempo real (Play/Pausa continuo y scrubbing interactivo), personalizás la reacción y los colores a gusto y exportás el video WebM.
 2. **Línea de Comandos:**  
    ```powershell
    .\visualizador.bat tests\fixtures\pista_espectro.wav -o build\onda.webm

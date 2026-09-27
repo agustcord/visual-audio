@@ -10,6 +10,7 @@ docs/RUTA_DE_TRABAJO.md §4:
 
 from __future__ import annotations
 
+import atexit
 import math
 import queue
 import threading
@@ -20,9 +21,10 @@ import tkinter as tk
 from tkinter import colorchooser, filedialog, messagebox, ttk
 from PIL import Image, ImageTk
 
-from . import estilos, parametros, proyecto
+from . import estilos, parametros, proyecto, reproductor
 from .analisis import Analisis, ErrorDeAnalisis, analizar
 from .render import Render
+from .reproductor import ReproductorAudio, crear_reproductor
 from .salida import ErrorDeSalida, SIGUIENTE_PASO, exportar
 
 
@@ -45,6 +47,7 @@ class VentanaVisualizador:
         estilo: str | None = None,
         proyecto_path: Path | str | None = None,
         preset: str | None = None,
+        reproductor_audio: ReproductorAudio | None = None,
     ) -> None:
         self._es_root_propio = root is None
         self.root = root or tk.Tk()
@@ -63,6 +66,13 @@ class VentanaVisualizador:
         self._imagen_tk_referencia: ImageTk.PhotoImage | None = None
         self._ultimo_error: str | None = None
 
+        # Motor de reproducción de audio y sincronización audiovisual
+        self._reproductor: ReproductorAudio = reproductor_audio or crear_reproductor()
+        self._t_inicio_reloj: float = 0.0
+        self._offset_seg_reloj: float = 0.0
+        self._scrubbing_activo: bool = False
+        self._estaba_reproduciendo_antes_de_scrub: bool = False
+
         # Control reactivo y animación
         self._timer_debounce: str | None = None
         self._reproduciendo: bool = False
@@ -73,6 +83,16 @@ class VentanaVisualizador:
         self._hilo_export: threading.Thread | None = None
         self._evento_cancelar = threading.Event()
         self._dialogo_progreso: tk.Toplevel | None = None
+
+        # Protocolos de ciclo de vida y prevención de procesos huérfanos (CA-5)
+        self.root.protocol("WM_DELETE_WINDOW", self._al_cerrar_ventana)
+        try:
+            atexit.register(self._al_salir_proceso)
+        except Exception:
+            pass
+
+        # Atajo global de teclado para Play / Pausa
+        self.root.bind("<space>", self._al_presionar_espacio)
 
         # Estructuras de datos para variables y widgets de parámetros
         self._variables: dict[str, tk.Variable] = {}
@@ -153,7 +173,7 @@ class VentanaVisualizador:
         frame_transporte.grid(row=1, column=0, sticky="ew", pady=(8, 0))
         frame_transporte.columnconfigure(1, weight=1)
 
-        # Deslizador de tiempo
+        # Deslizador de tiempo interactivo con scrubbing
         self._var_escala_tiempo = tk.DoubleVar(value=0.0)
         self.scale_tiempo = ttk.Scale(
             frame_transporte,
@@ -164,13 +184,17 @@ class VentanaVisualizador:
             command=self._al_mover_escala_tiempo,
         )
         self.scale_tiempo.grid(row=0, column=0, columnspan=4, sticky="ew", padx=4, pady=2)
+        self.scale_tiempo.bind("<ButtonPress-1>", self._al_iniciar_scrubbing)
+        self.scale_tiempo.bind("<B1-Motion>", self._al_arrastrar_scrubbing)
+        self.scale_tiempo.bind("<ButtonRelease-1>", self._al_finalizar_scrubbing)
 
         # Botones y etiquetas de transporte
         self.btn_prev_frame = ttk.Button(frame_transporte, text="◀ Cuadro", width=9, command=self._retroceder_un_cuadro)
         self.btn_prev_frame.grid(row=1, column=0, sticky="w", padx=2, pady=4)
 
-        self.btn_animar = ttk.Button(frame_transporte, text="▶ Fragmento (2s)", command=self._alternar_animacion_fragmento)
-        self.btn_animar.grid(row=1, column=1, sticky="w", padx=4, pady=4)
+        self.btn_play_pausa = ttk.Button(frame_transporte, text="▶ Reproducir", command=self._alternar_reproduccion)
+        self.btn_play_pausa.grid(row=1, column=1, sticky="w", padx=4, pady=4)
+        self.btn_animar = self.btn_play_pausa  # Alias de compatibilidad hacia atrás
 
         self.btn_next_frame = ttk.Button(frame_transporte, text="Cuadro ▶", width=9, command=self._avanzar_un_cuadro)
         self.btn_next_frame.grid(row=1, column=2, sticky="w", padx=2, pady=4)
@@ -507,6 +531,7 @@ class VentanaVisualizador:
 
     def cambiar_estilo(self, nuevo_estilo: str) -> None:
         """Cambia el estilo de renderizado y refresca controles."""
+        self.detener_reproduccion()
         estilos.obtener(nuevo_estilo)  # valida existencia
         self._estilo = nuevo_estilo
         self._combo_estilos.set(nuevo_estilo)
@@ -538,7 +563,7 @@ class VentanaVisualizador:
     def cargar_audio(self, ruta: Path | str) -> bool:
         """Carga y analiza una pista de audio. Muestra fotograma inicial de inmediato."""
         ruta_p = Path(ruta)
-        self._detener_animacion()
+        self.detener_reproduccion()
         try:
             params = self.obtener_parametros()
             self._analisis = analizar(ruta_p, params, self._estilo)
@@ -550,6 +575,10 @@ class VentanaVisualizador:
             self._ultimo_error = str(e)
             messagebox.showerror("Error al cargar audio", f"No se pudo cargar '{ruta_p.name}':\n\n{e}")
             return False
+
+        # Cargar pista en el reproductor de audio desacoplado
+        self._reproductor.cargar(ruta_p)
+        self._offset_seg_reloj = 0.0
 
         # Actualizar transporte
         total_cuadros = self._analisis.n_cuadros
@@ -577,6 +606,7 @@ class VentanaVisualizador:
 
     def cargar_proyecto(self, ruta: Path | str) -> bool:
         """Carga un archivo de proyecto JSON y actualiza el estado completo."""
+        self.detener_reproduccion()
         try:
             audio_path, estilo_id, params = proyecto.abrir(ruta)
             self._estilo = estilo_id
@@ -626,6 +656,7 @@ class VentanaVisualizador:
 
     def aplicar_preset(self, nombre_o_ruta: str) -> bool:
         """Aplica un preset de fábrica o archivo personalizado."""
+        self.detener_reproduccion()
         try:
             estilo_id, params = proyecto.abrir_preset(nombre_o_ruta)
             self._estilo = estilo_id
@@ -769,17 +800,23 @@ class VentanaVisualizador:
         if nuevo_cuadro != self._cuadro_actual:
             self._cuadro_actual = max(0, min(nuevo_cuadro, self._analisis.n_cuadros - 1))
             self._actualizar_vista_previa_inmediata()
+            if not self._reproduciendo and not self._scrubbing_activo:
+                self._offset_seg_reloj = self._analisis.segundo_de(self._cuadro_actual)
 
     def _retroceder_un_cuadro(self) -> None:
         if self._analisis and self._cuadro_actual > 0:
+            self.detener_reproduccion()
             self._cuadro_actual -= 1
             self._var_escala_tiempo.set(self._cuadro_actual)
+            self._offset_seg_reloj = self._analisis.segundo_de(self._cuadro_actual)
             self._actualizar_vista_previa_inmediata()
 
     def _avanzar_un_cuadro(self) -> None:
         if self._analisis and self._cuadro_actual < self._analisis.n_cuadros - 1:
+            self.detener_reproduccion()
             self._cuadro_actual += 1
             self._var_escala_tiempo.set(self._cuadro_actual)
+            self._offset_seg_reloj = self._analisis.segundo_de(self._cuadro_actual)
             self._actualizar_vista_previa_inmediata()
 
     def _actualizar_indicador_tiempo(self) -> None:
@@ -792,40 +829,52 @@ class VentanaVisualizador:
             text=f"{formatear_tiempo(t_actual)} / {formatear_tiempo(t_total)} ({self._cuadro_actual + 1} / {self._analisis.n_cuadros})"
         )
 
-    def _alternar_animacion_fragmento(self) -> None:
+    # ----------------------------------------------------------------------- #
+    # Reproducción Sincronizada con Master Clock y Scrubbing
+    # ----------------------------------------------------------------------- #
+
+    def _al_presionar_espacio(self, event: Any = None) -> str | None:
+        """Atajo de barra espaciadora para alternar Play/Pausa."""
+        w_focus = self.root.focus_get()
+        if isinstance(w_focus, (tk.Entry, ttk.Entry)):
+            return None
+        self._alternar_reproduccion()
+        return "break"
+
+    def _alternar_reproduccion(self) -> None:
+        """Alterna el estado de reproducción continua entre Play y Pausa."""
         if self._reproduciendo:
-            self._detener_animacion()
+            self.pausar()
         else:
-            self._iniciar_animacion_fragmento()
+            self.reproducir()
 
-    def _iniciar_animacion_fragmento(self) -> None:
-        if self._analisis is None:
-            return
-        fps = self._analisis.fps
-        cuadros_fragmento = 60  # 2 segundos exactos
-        self._cuadro_fin_animacion = min(self._cuadro_actual + cuadros_fragmento, self._analisis.n_cuadros - 1)
-        if self._cuadro_actual >= self._cuadro_fin_animacion:
-            self._cuadro_actual = max(0, self._cuadro_fin_animacion - cuadros_fragmento)
-            self._var_escala_tiempo.set(self._cuadro_actual)
+    def reproducir(self) -> bool:
+        """Inicia o reanuda la reproducción sincronizada con audio continuo."""
+        if self._analisis is None or self._ruta_audio is None:
+            return False
 
+        # Si el cursor está en el último cuadro o final de pista, reiniciar al cuadro 0
+        if self._cuadro_actual >= self._analisis.n_cuadros - 1:
+            self._cuadro_actual = 0
+            self._var_escala_tiempo.set(0)
+
+        offset_seg = self._analisis.segundo_de(self._cuadro_actual)
+
+        # Cargar la pista en el reproductor e iniciar audio en el offset exacto
+        self._reproductor.cargar(self._ruta_audio)
+        self._reproductor.reproducir(offset_seg)
+
+        # Inicializar Master Clock monotónico de alta resolución
+        self._offset_seg_reloj = offset_seg
+        self._t_inicio_reloj = time.perf_counter()
         self._reproduciendo = True
-        self.btn_animar.config(text="⏹ Detener")
-        intervalo_ms = max(15, int(1000 / fps))
-        self._bucle_animacion(intervalo_ms)
 
-    def _bucle_animacion(self, intervalo_ms: int) -> None:
-        if not self._reproduciendo:
-            return
-        if self._cuadro_actual >= self._cuadro_fin_animacion or self._cuadro_actual >= self._analisis.n_cuadros - 1:
-            self._detener_animacion()
-            return
+        self.btn_play_pausa.config(text="⏸ Pausar")
+        self._bucle_reproduccion()
+        return True
 
-        self._cuadro_actual += 1
-        self._var_escala_tiempo.set(self._cuadro_actual)
-        self._actualizar_vista_previa_inmediata()
-        self._timer_animacion = self.root.after(intervalo_ms, lambda: self._bucle_animacion(intervalo_ms))
-
-    def _detener_animacion(self) -> None:
+    def pausar(self) -> None:
+        """Pausa la reproducción continua y detiene el subproceso de audio."""
         self._reproduciendo = False
         if self._timer_animacion is not None:
             try:
@@ -833,7 +882,81 @@ class VentanaVisualizador:
             except Exception:
                 pass
             self._timer_animacion = None
-        self.btn_animar.config(text="▶ Fragmento (2s)")
+
+        self._reproductor.pausar()
+        self.btn_play_pausa.config(text="▶ Reproducir")
+
+    def detener_reproduccion(self) -> None:
+        """Detiene completamente la reproducción y reinicia los timers."""
+        self._reproduciendo = False
+        if self._timer_animacion is not None:
+            try:
+                self.root.after_cancel(self._timer_animacion)
+            except Exception:
+                pass
+            self._timer_animacion = None
+
+        self._reproductor.detener()
+        self.btn_play_pausa.config(text="▶ Reproducir")
+
+    def _bucle_reproduccion(self) -> None:
+        """Bucle de animación gobernado por Master Clock monotónico y time-delta."""
+        if not self._reproduciendo or self._analisis is None:
+            return
+
+        # 1. Consultar tiempo del Master Clock monotónico
+        t_delta = time.perf_counter() - self._t_inicio_reloj
+        t_actual = self._offset_seg_reloj + t_delta
+
+        # 2. Comprobar si se alcanzó el fin de la pista o el reproductor finalizó
+        if t_actual >= self._analisis.duracion or not self._reproductor.esta_reproduciendo():
+            self._cuadro_actual = self._analisis.n_cuadros - 1
+            self._var_escala_tiempo.set(self._cuadro_actual)
+            self._actualizar_vista_previa_inmediata()
+            self.detener_reproduccion()
+            return
+
+        # 3. Calcular cuadro objetivo con frame-skipping automático
+        cuadro_calculado = int(math.floor(t_actual * self._analisis.fps))
+        cuadro_objetivo = max(0, min(cuadro_calculado, self._analisis.n_cuadros - 1))
+
+        if cuadro_objetivo != self._cuadro_actual:
+            self._cuadro_actual = cuadro_objetivo
+            self._var_escala_tiempo.set(cuadro_objetivo)
+            self._actualizar_vista_previa_inmediata()
+
+        # 4. Programar siguiente tick (~15 ms para ~60 fps de refresco visual)
+        self._timer_animacion = self.root.after(15, self._bucle_reproduccion)
+
+    def _al_iniciar_scrubbing(self, event: Any = None) -> None:
+        """Al presionar sobre el slider: silenciar audio y aislar órdenes al sistema."""
+        self._scrubbing_activo = True
+        self._estaba_reproduciendo_antes_de_scrub = self._reproduciendo
+        if self._reproduciendo:
+            self.pausar()
+
+    def _al_arrastrar_scrubbing(self, event: Any = None) -> None:
+        """Durante el arrastre del slider: actualizar exclusivamente la imagen visual."""
+        pass
+
+    def _al_finalizar_scrubbing(self, event: Any = None) -> None:
+        """Al soltar el slider: reanudar audio en el offset exacto si estaba reproduciendo."""
+        self._scrubbing_activo = False
+        if self._analisis is not None:
+            self._offset_seg_reloj = self._analisis.segundo_de(self._cuadro_actual)
+        if self._estaba_reproduciendo_antes_de_scrub:
+            self._estaba_reproduciendo_antes_de_scrub = False
+            self.reproducir()
+
+    # Métodos de compatibilidad hacia atrás
+    def _alternar_animacion_fragmento(self) -> None:
+        self._alternar_reproduccion()
+
+    def _iniciar_animacion_fragmento(self) -> None:
+        self.reproducir()
+
+    def _detener_animacion(self) -> None:
+        self.detener_reproduccion()
 
     def obtener_cuadro_actual_raw(self) -> Image.Image | None:
         """Devuelve el cuadro RGBA sin escalar generado por Render.cuadro(i)."""
@@ -867,6 +990,7 @@ class VentanaVisualizador:
         callback_finalizado: Callable[[Path | None, Exception | None], None] | None = None,
     ) -> None:
         """Inicia la exportación en un hilo secundario con diálogo de progreso."""
+        self.detener_reproduccion()
         if not self._ruta_audio or self._analisis is None:
             if callback_finalizado:
                 callback_finalizado(None, RuntimeError("No hay audio cargado"))
@@ -980,10 +1104,31 @@ class VentanaVisualizador:
         if btn and btn.winfo_exists():
             btn.config(text="Cancelando...", state="disabled")
 
+    # ----------------------------------------------------------------------- #
+    # Ciclo de Vida Limpio y Cero Procesos Zombis (CA-5)
+    # ----------------------------------------------------------------------- #
+
+    def _al_cerrar_ventana(self) -> None:
+        """Manejador de WM_DELETE_WINDOW para liberar recursos y cerrar subprocesos."""
+        self.detener_reproduccion()
+        if hasattr(self, "_reproductor") and self._reproductor is not None:
+            self._reproductor.cerrar()
+        if self._dialogo_progreso and self._dialogo_progreso.winfo_exists():
+            self.cancelar_exportacion()
+        self.root.destroy()
+
+    def _al_salir_proceso(self) -> None:
+        """Hook atexit para garantizar terminación absoluta de cualquier proceso ffplay."""
+        try:
+            if hasattr(self, "_reproductor") and self._reproductor is not None:
+                self._reproductor.cerrar()
+        except Exception:
+            pass
+
 
 def main(argv: list[str] | None = None, audio: Path | str | None = None,
          proyecto_path: Path | str | None = None, preset: str | None = None,
-         estilo: str | None = None) -> int:
+         estilo: str | None = None, reproductor_audio: ReproductorAudio | None = None) -> int:
     """Punto de entrada para inicializar y ejecutar el bucle principal de la GUI."""
     root = tk.Tk()
     app = VentanaVisualizador(
@@ -992,6 +1137,7 @@ def main(argv: list[str] | None = None, audio: Path | str | None = None,
         estilo=estilo,
         proyecto_path=proyecto_path,
         preset=preset,
+        reproductor_audio=reproductor_audio,
     )
     root.mainloop()
     return 0

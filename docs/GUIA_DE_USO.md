@@ -28,10 +28,12 @@ La interfaz gráfica fue diseñada para que no tengas que programar ni escribir 
 2. Seleccioná tu pista musical (`.wav`, `.mp3`, `.flac`, `.ogg`, etc.).
 3. **Previsualización inmediata:** Tan pronto como el audio se carga, la aplicación analiza la pista en fracciones de segundo y te muestra de inmediato la onda visualizada con el preset por defecto en el primer cuadro.
 
-### Paso 2: Navegar la Canción (Scrubbing y Fragmento Animado)
-- **Barra de tiempo:** Arrastrá el control deslizante horizontal inferior para desplazarte por cualquier punto de la canción y ver cómo reacciona el dibujo en ese segundo exacto.
-- **Botones `<` y `>`:** Avanzá o retrocedé cuadro a cuadro (a 30 fps cada paso son 33 ms).
-- **Probar fragmento (2s):** Hacé clic en este botón para reproducir una animación de prueba de 2 segundos en el visor sin congelar la ventana.
+### Paso 2: Escuchar y Previsualizar en Tiempo Real (Play/Pausa y Scrubbing)
+- **Botón "▶ Reproducir" / "⏸ Pausar":** Hacé clic para iniciar o pausar la reproducción de audio en tiempo real sincronizada cuadro a cuadro con la animación de las ondas. La reproducción continúa de forma indefinida hasta que pulses pausa o termine la pista (sin limitarse a 2 segundos).
+- **Atajo con la Barra Espaciadora (`Espacio`):** Podés presionar la barra espaciadora del teclado en cualquier momento para alternar rápidamente entre Play y Pausa.
+- **Scrubbing interactivo:** Arrastrá el control deslizante de tiempo: mientras arrastrás, la imagen se actualiza instantáneamente en el visor; al soltar el mouse, el audio se reanuda de inmediato en el segundo exacto donde lo dejaste.
+- **Botones "◀ Cuadro" y "Cuadro ▶":** Avanzá o retrocedé cuadro a cuadro de forma milimétrica (a 30 fps cada paso son exactamente 33 ms).
+- **Indicador de tiempo:** Muestra el tiempo actual transcurrido, la duración total y los números de cuadro (`MM:SS.mmm / MM:SS.mmm (cuadro / total)`).
 
 ### Paso 3: Elegir el Estilo
 En el panel derecho, en la sección **Estilo**, podés alternar entre los tres estilos incluidos:
