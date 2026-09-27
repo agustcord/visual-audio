@@ -8,7 +8,9 @@ Proyecto de **Jonatan Córdoba**, usuario externo de Drift — **no forma parte 
 
 ## Estado
 
-**MVP Completo — Etapas 1 a 6 cerradas. Próximo paso: Etapa 7 (Validación con el fundador).**
+**MVP Cerrado y Catalogado (v0.1.0-mvp) — Etapas 1 a 7 cerradas con PASS formal del Fundador.**  
+La versión de línea base cuenta con suite completa de **277 comprobaciones automáticas pasando al 100% en verde**.  
+Próximo ciclo: **Roadmap Post-MVP (Optimización de rendimiento, desacople multihilo y UX reactiva)**.
 
 El estado vivo y los detalles de continuidad están en **[`RETOMAR.md`](RETOMAR.md)**.
 

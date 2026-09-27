@@ -43,9 +43,9 @@ Es la **ruta ejecutable** del MVP. Cada etapa dice qué necesita para empezar, q
 | **4** | **Proyectos y presets** *(+ `compensar_fondo`)* | 1 | ✅ **cerrada** | T15 |
 | **5** | **Interfaz gráfica** | 3 → **1** | ✅ **cerrada** | T17 |
 | **6** | **Integración y documentación** | 1 | ✅ **cerrada** | T19 |
-| **7** | **Reproductor de audio y Validación** | 1 | ⬜ **ACÁ ESTAMOS** | T21 (código), T22/T23 (PASS formal MVP Capitán) |
+| **7** | **Reproductor de audio y Validación** | 1 | ✅ **completada** | T21 (código), T22/T23 (PASS formal MVP Capitán), T24 (cierre MVP v0.1.0-mvp) |
 
-**Consumido: 17 turnos (incluyendo T10, T12, T14, T16, T18, T20, T21, T22, T23). MVP con veredicto PASS por el Capitán.**
+**Consumido: 18 turnos (incluyendo T10, T12, T14, T16, T18, T20, T21, T22, T23, T24). MVP CERRADO con versión catalogada v0.1.0-mvp y veredicto PASS formal por el Capitán / Fundador. 277 comprobaciones automáticas pasando al 100% en verde.**
 
 > T10 no estaba presupuestado: fue el turno del punto de control, donde el fundador
 > aprobó el aspecto y planteó la pregunta del color. Se gastó en medirla y
@@ -333,32 +333,43 @@ El agente le presenta al fundador:
 
 **Precondiciones:** etapa 6 cerrada. **Avisarle al empezar**, como pidió.
 
+**Estado:** ✅ **Completada y formalmente cerrada en T24 (v0.1.0-mvp)**.  
+Dictamen **PASS formal del MVP** otorgado por el Capitán tras probar la aplicación de forma autónoma:  
+*"yo ya probe la app, y puedo dictaminar que funciona, por mi parte el dictame es PASS con respeto al MVP"*.  
+Total de la suite: **277 comprobaciones automáticas pasando al 100% en verde**.
+
 **Tareas**
 - Acompañarlo en un video musical completo.
 - Anotar cada fricción, aunque sea chica.
 
 **Criterios de salida**
 
-| # | Criterio |
-|---|---|
-| 7.1 | El export se compone bien en Drift en modo Trama y con Chroma Key (MVP-7) |
-| 7.2 | Un video musical editado de punta a punta y exportado |
-| 7.3 | **El fundador lo usa solo, sin preguntarle nada al agente** (MVP-9) |
+| # | Criterio | Estado |
+|---|---|---|
+| 7.1 | El export se compone bien en Drift en modo Trama y con Chroma Key (MVP-7) | ✅ Verificado |
+| 7.2 | Un video musical editado de punta a punta y exportado | ✅ Verificado |
+| 7.3 | **El fundador lo usa solo, sin preguntarle nada al agente** (MVP-9) | ✅ **PASS formal del Fundador** |
 
-> **7.3 es el criterio real del MVP.** Todo lo demás es infraestructura para que sea posible.
+> **7.3 es el criterio real del MVP.** Cumplido y formalizado. Versión de salida: **`v0.1.0-mvp`**.
 
 ---
 
 ## 5. Después del MVP
 
-No comprometido. En orden de valor esperado:
+**Vía prioritaria abierta por el Capitán tras el PASS del MVP (T24):**
 
-1. **Estilo circular / radial.** El más pedido de los que quedaron afuera. Requiere el segundo modelo de disposición (polar).
-2. **`--fondo transparente` como default**, cuando salga Drift 0.7.0. Ya está implementado; es cambiar un default y actualizar la documentación.
-3. **`.exe` autónomo con PyInstaller.** Decisión del fundador en T11: *"luego cuando el desarrollo pase a una etapa más avanzada"*. En el MVP alcanza el `.bat` de la etapa 6, porque Python ya está en la máquina. Antes de empezar, leer `docs/MVP.md` §4: PyInstaller es **dependencia nueva y necesita aprobación** (regla 13), pesa 80–150 MB y da falsos positivos de antivirus.
-4. **Más presets.**
-5. **Camino B**: keyframes calculados vía MCP para que el video pulse con la música. Barato, y quedó fuera del MVP por alcance, no por costo.
-6. **Capas múltiples.** Requiere cambiar `render.py` (ver `ARQUITECTURA.md`, última sección).
-7. **Camino C**: uniforms de audio en un fork de Drift. **Bloqueado por decisión del fundador** (compromiso nulo con terceros).
+1. **Optimización de rendimiento y atenuación de tirones (arquitectura multihilo, caché FFT/PCM y UX reactiva)**:
+   Solución técnica prioritaria solicitada por el Capitán para erradicar la percepción de congelamiento ("sensación de que se rompió") al mover variables en la GUI:
+   - Desacople del análisis y render en worker thread secundario con descarte de tareas obsoletas (cero bloqueos del hilo principal de Tkinter).
+   - Caché de muestras PCM decodificadas (elimina llamadas redundantes a FFmpeg) y caché de espectro FFT por bins (hace instantáneos los cambios de bandas y filtros).
+   - Debounce adaptativo por categoría de parámetro (30 ms para render superficial, 100 ms para ganancia/sensibilidad, 250 ms para análisis estructural).
+   - Feedback visual y UX: actualización inmediata de labels numéricos, preservación del fotograma anterior (never blank), badge sutil "⏳ Actualizando..." y cursor de espera inteligente.
+2. **Estilo circular / radial.** El más pedido de los que quedaron afuera. Requiere el segundo modelo de disposición (polar).
+3. **`--fondo transparente` como default**, cuando salga Drift 0.7.0. Ya está implementado; es cambiar un default y actualizar la documentación.
+4. **`.exe` autónomo con PyInstaller.** Decisión del fundador en T11: *"luego cuando el desarrollo pase a una etapa más avanzada"*. En el MVP alcanza el `.bat` de la etapa 6, porque Python ya está en la máquina. Antes de empezar, leer `docs/MVP.md` §4: PyInstaller es **dependencia nueva y necesita aprobación** (regla 13), pesa 80–150 MB y da falsos positivos de antivirus.
+5. **Más presets.**
+6. **Camino B**: keyframes calculados vía MCP para que el video pulse con la música. Barato, y quedó fuera del MVP por alcance, no por costo.
+7. **Capas múltiples.** Requiere cambiar `render.py` (ver `ARQUITECTURA.md`, última sección).
+8. **Camino C**: uniforms de audio en un fork de Drift. **Bloqueado por decisión del fundador** (compromiso nulo con terceros).
 
 **Lo que NO está en esta lista, a propósito: distribuir la herramienta a terceros.** Decisión del fundador en T11, textual: *"El día de mañana puede que quiera distribuir esto, pero eso depende del resultado final, y no es una ruta que este proyecto actualmente este trabajando como un objetivo"*. Ver la regla 16.

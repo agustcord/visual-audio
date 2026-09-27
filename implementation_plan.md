@@ -1,77 +1,68 @@
-# Plan de Implementación (Reajustado) — Etapa 7: Reproducción de Audio, Armonización y Cierre de Suite
+# Plan de Implementación — Roadmap Post-MVP: Optimización de Rendimiento y UX Reactiva (Gate del Capitán)
 
 ## 📌 Pedido Original del Capitán (textual)
-> "la app no tiene un boton de play, solo un muestro de 2 segundo. tambien debería tener un reproductor, para saber si las ondas que generan me gusta como encaja con el sonido"
+> "procede con eso que pidio mal humor. yo ya probe la app, y puedo dictaminar que funciona, por mi parte el dictame es PASS con respeto al MVP, sino no la considero una version final ya que tiene mejoras importantes por hacer. La primera, es el rendimiento, el programa tiene procesos brusco de cargar cuando se modifica una variable, siendo facil de interpretar que se \"rompio\" cuando no es asi. que programadora haga lo que pidio mal humor. pero que arquitecta docummente mvp cerrado, catalogue la version correctamente, y empiece a investigar como mmejorar este apartado, o como \"maquillar\" esta sensacion de que se rompio, para que el programa sea mas amigable con el usuario"
 
 ---
 
-## 1. Verificación Factual de Línea Base y Dictamen de Fase 3 QA
-- **Repositorio y Rama:** `master` en `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins`.
-- **Estado Técnico del Reproductor:** `tools/visualizador/reproductor.py` implementado con backends `FFplayBackend`, `MCIBackend` y `NullBackend`. Transporte continuo, scrubbing interactivo y Master Clock monotónico integrados en `tools/visualizador/gui.py`. Suites unitarias `test_reproductor.py` (43/43 OK) y `test_gui.py` (64/64 OK) operando al 100%.
-- **Dictamen FAIL de Ani Mal Humor:** Al ejecutar la suite completa de verificación en Fase 3, se constató una regresión en `tests/test_lanzador.py` con 2 fallas en el Criterio 6.3 (42 pasadas, 2 fallas, código de salida 1).
-- **Causa Raíz:** Modificaciones textuales en `RETOMAR.md` (remoción de la frase obligatoria `"etapas 1 a 6 cerradas"`) y en `docs/RUTA_DE_TRABAJO.md` §1 (sustitución del puntero `⬜ **ACÁ ESTAMOS**` por `🔄 **en validación**`).
-- **Estado de Git:** Working tree sucio con cambios de Etapa 7 sin consolidar en un commit atómico.
+## 1. Contexto y Estado de Línea Base
+- **Estado del MVP:** Formalmente cerrado y catalogado como **`v0.1.0-mvp`** con dictamen **PASS** emitido por el Capitán tras pruebas directas y con la totalidad de la suite automatizada en verde (**277 comprobaciones automáticas pasando al 100%, 0 fallas y 0 regresiones**).
+- **Objetivo de este Plan:** Responder al mandato expreso del Capitán para transformar la experiencia interactiva de la aplicación, eliminando los procesos bruscos de carga ("tirones") y la sensación de que el programa "se rompió" cuando el usuario ajusta variables en la interfaz gráfica.
+- **Alcance Operativo:** Modificaciones de arquitectura en `tools/visualizador/gui.py` y `tools/visualizador/analisis.py`, adición de componentes de feedback visual en el visor de Tkinter, y pruebas de verificación de latencia en `tests/test_gui.py`. Cero mutaciones de código en turno 1 (Fase 1 Triage) a la espera de la autorización en el **Gate del Capitán**.
 
 ---
 
 ## 2. Justificación de Consulta en Fase 0
-No se convoca a `ani-pensadora` ni a `ani-investigadora` en esta fase de corrección debido a que la causa raíz es puramente factual y ya está aislada, reproducida e identificada con certeza en disco.
+De acuerdo con las Reglas de Workspace y Delegación Anidada de Ani Arquitecta, el análisis de arquitectura, ponderación de tradeoffs y formulación de contingencias técnicas se resolvió de forma autónoma e integral en este plan y en el informe durable `.memory/handoffs/T24_cierre_mvp_v010_investigacion_rendimiento_ux_20260926.md`. No se requiere consulta externa adicional para habilitar la decisión del Capitán en el Gate.
 
 ---
 
-## 3. Plan Estructurado de Acciones Correctivas
+## 3. Plan Estructurado de Tareas por Fases y Roles
 
-### Tarea 1: Armonización de Estado Vivo en `RETOMAR.md`
-- **Rol Asignado:** Ani Programadora.
-- **Archivo:** `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\RETOMAR.md`.
-- **Acción:**
-  - Restituir la frase canónica exigida por la prueba unitaria: `"etapas 1 a 6 cerradas"`.
-  - Establecer el encabezado exacto:
-    ```markdown
-    ## 🚦 Estado: etapas 1 a 6 cerradas. Etapa 7 implementada y en validación (Reproductor de audio sincronizado y control Play/Pausa). 260 tests pasando al 100% en verde.
-    ```
-  - Preservar el resumen técnico de los componentes del reproductor y las instrucciones de ejecución.
+### FASE 2: EJECUCIÓN TÉCNICA
 
-### Tarea 2: Armonización de Tabla de Estado en `docs/RUTA_DE_TRABAJO.md`
-- **Rol Asignado:** Ani Programadora.
-- **Archivo:** `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\docs\RUTA_DE_TRABAJO.md`.
-- **Acción:**
-  - Armonizar la fila de la Etapa 7 en la tabla de §1 manteniendo el marcador `⬜ **ACÁ ESTAMOS**`:
-    ```markdown
-    | **7** | **Reproductor de audio y validación con el fundador** | 1 | ⬜ **ACÁ ESTAMOS** | T21 (código implementado, en validación) |
-    ```
+#### Bloque A: Arquitectura de Cómputo y Caché (Ani Programadora)
+- **Tarea 2.1 — Implementación de Caché de Audio PCM en `analisis.py`:**
+  - Crear un diccionario de caché global en memoria `_CACHE_PCM: dict[tuple[Path, float], np.ndarray]` indexado por `(ruta_audio.resolve(), mtime)`.
+  - En `leer_mono(ruta)`, verificar si el audio ya fue decodificado y el archivo no mutó. Si existe en caché, devolver la referencia inmediatamente en 0 ms sin invocar `ffmpeg.exe`.
+  - Erradicar las llamadas redundantes a subprocesos durante los ajustes de parámetros analíticos.
 
-### Tarea 3: Robustecimiento de Aserciones en `tests/test_lanzador.py`
-- **Rol Asignado:** Ani Programadora.
-- **Archivo:** `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\tests\test_lanzador.py`.
-- **Acción:**
-  - En `probar_criterio_6_3`, flexibilizar el regex de la Etapa 7 para admitir estados válidos en curso (`⬜ **ACÁ ESTAMOS**` o `🔄 **en validación**`):
-    ```python
-    afirmar(re.search(r"\|\s*\*\*7\*\*\s*\|.*?\|\s*(?:⬜\s*\*\*ACÁ ESTAMOS\*\*|🔄\s*\*\*en validación\*\*)\s*\|", texto_ruta) is not None,
-            "RUTA_DE_TRABAJO.md §1 sitúa el puntero de ejecución en la Etapa 7")
-    ```
+- **Tarea 2.2 — Worker Thread Asíncrono y Cola con Descarte de Obsoletos (Last-Write-Wins) en `gui.py`:**
+  - Crear un hilo trabajador secundario (`self._worker_thread`) demonizado y una cola de solicitudes thread-safe de tamaño 1 (`queue.Queue(maxsize=1)` o variable atómica con cerrojo `threading.Lock`).
+  - Cuando el usuario mueve un control, la solicitud de recálculo se encola. Si el worker está ocupado procesando un cuadro previo, la nueva solicitud sobrescribe a la anterior (descarte automático de estados intermedios obsoletos).
+  - El cómputo pesado de `analizar()` y `Render.cuadro(i)` corre íntegramente en el worker thread, liberando al hilo principal de Tkinter de cualquier bloqueo sincrónico.
+  - La entrega del cuadro renderizado hacia el canvas se despacha de forma thread-safe mediante `self.root.after_idle` o mensaje de retorno.
 
-### Tarea 4: Ejecución y Verificación Integral de la Suite Completa
-- **Rol Asignado:** Ani Programadora.
-- **Acción:**
-  - Ejecutar los 7 scripts de prueba del proyecto:
-    1. `python tests/test_analisis.py` (36 comprobaciones)
-    2. `python tests/test_render.py --export` (36 comprobaciones)
-    3. `python tests/verificar_sincronia.py` (8 comprobaciones)
-    4. `python tests/test_proyecto.py` (46 comprobaciones)
-    5. `python tests/test_lanzador.py` (44 comprobaciones)
-    6. `python tests/test_reproductor.py` (43 comprobaciones)
-    7. `python tests/test_gui.py` (64 comprobaciones)
-  - Constatar que la totalidad de pruebas pasen en verde con 0 fallas y código de salida 0.
+- **Tarea 2.3 — Debounce Adaptativo por Categoría de Parámetro en `gui.py`:**
+  - Sustituir el debounce fijo de 50 ms por un temporizador dinámico según el parámetro que originó el cambio:
+    * **Cosméticos / Render directo (30 ms):** `color`, `grosor_linea`, `resplandor`, `reflejo`, `tapas_pico`, `espaciado`, `compensar_fondo`.
+    * **Ganancia y Respuesta Dinámica (100 ms):** `sensibilidad`, `suavizado`, `caida_picos`.
+    * **Analíticos Estructurales (250 ms):** `n_barras`, `frec_min`, `frec_max`, `curva_respuesta`, `fps`.
 
-### Tarea 5: Consolidación Atómica y Limpieza del Árbol Git
-- **Rol Asignado:** Ani Programadora.
-- **Acción:**
-  - Agregar al staging todos los componentes involucrados:
-    `git add tools/ tests/ docs/ README.md RETOMAR.md implementation_plan.md .memory/`
-  - Consolidar con mensaje semántico:
-    `git commit -m "feat(etapa7): reproductor de audio sincronizado, control play/pausa y armonizacion de tests"`
-  - Constatar con `git status` que el árbol quede completamente limpio (`nothing to commit, working tree clean`).
+---
+
+#### Bloque B: Maquillaje y Feedback de Experiencia de Usuario (Ani Frontend)
+- **Tarea 2.4 — Actualización Inmediata y Sincrónica de Displays Numéricos a 60 fps:**
+  - En `_al_mover_slider()`, asegurar que `self._labels_display[nombre].config(text=txt)` se ejecute de inmediato y sincrónicamente ante el evento de arrastre de Tkinter, desacoplado del timer de debounce del render.
+  - El usuario percibe respuesta instantánea de la interfaz bajo el puntero del ratón en todo momento.
+
+- **Tarea 2.5 — Preservación del Fotograma Anterior (Ghost Frame / Never Blank):**
+  - Garantizar que durante el tiempo de recálculo asíncrono el canvas de previsualización conserve intacto el último fotograma dibujado, prohibiendo explícitamente cualquier borrado o parpadeo a negro.
+
+- **Tarea 2.6 — Badge Sutil de Actualización en el Visor ("⏳ Actualizando..."):**
+  - Implementar un indicador visual no intrusivo en el canvas o barra de estado (badge semi-transparente en la esquina superior derecha del visor con el texto `"⏳ Actualizando..."` y cursor de espera en el canvas).
+  - El badge se activa si la tarea del worker toma más de 80 ms y se oculta de inmediato al recibir y proyectar el fotograma final.
+  - Erradica por completo la interpretación de que "el programa se rompió", otorgando feedback explícito de actividad en curso.
+
+---
+
+### FASE 3: QA Y AUDITORÍA DE ACEPTACIÓN (Ani Mal Humor)
+- **Tarea 3.1 — Auditoría Empírica de Latencia y Fluidez de UI:**
+  - Medir que la latencia en el hilo principal de Tkinter durante el arrastre continuo de sliders se mantenga en $\le 16$ ms (60 fps), sin eventos de ventana congelada ni mensajes de "No responde" del sistema operativo.
+- **Tarea 3.2 — Verificación de Ausencia de Invocaciones Redundantes a FFmpeg:**
+  - Auditar que al modificar sliders analíticos con una pista ya cargada, el contador de ejecuciones de `ffmpeg.exe` permanezca en 0 gracias a la caché PCM.
+- **Tarea 3.3 — Auditoría de la Suite Integral de Pruebas (277+ checks):**
+  - Ejecutar la suite completa de 7 scripts de prueba (`test_analisis.py`, `test_render.py`, `verificar_sincronia.py`, `test_proyecto.py`, `test_lanzador.py`, `test_reproductor.py`, `test_gui.py`) y nuevas pruebas para el worker y la caché, certificando 0 fallas y 0 regresiones.
 
 ---
 
@@ -79,20 +70,22 @@ No se convoca a `ani-pensadora` ni a `ani-investigadora` en esta fase de correcc
 
 | Criterio | Descripción | Método de Verificación Empírico | Umbral Falsable |
 |---|---|---|---|
-| **CA-CORR-1** | Armonización de `RETOMAR.md` | Inspección de texto y test automatizado | Contiene textualmente `"etapas 1 a 6 cerradas"` y `"etapa 7"`. |
-| **CA-CORR-2** | Armonización de `RUTA_DE_TRABAJO.md` | Inspección de tabla §1 y test automatizado | Fila 7 contiene `⬜ **ACÁ ESTAMOS**` y referencia al código implementado. |
-| **CA-CORR-3** | Suite `test_lanzador.py` al 100% | `python tests/test_lanzador.py` | 44 de 44 comprobaciones en verde, 0 fallas, exit code 0. |
-| **CA-CORR-4** | Suite integral del proyecto al 100% | Ejecución secuencial de los 7 scripts de tests | 0 fallas en cada suite, código de salida 0 general. |
-| **CA-CORR-5** | Árbol Git 100% limpio | `git status --porcelain` | Salida vacía (0 líneas), working tree completamente limpio. |
+| **CA-POST-1** | Hilo principal de Tkinter no bloqueante | Medición de tiempo de bloqueo en evento `<B1-Motion>` en `gui.py` | Latencia de UI en hilo principal $\le 16$ ms; cero congelamientos perceptibles. |
+| **CA-POST-2** | Caché de decodificación PCM | Conteo de llamadas a `subprocess.run` con `ffmpeg` tras cargar el audio | Exactamente 0 llamadas a FFmpeg al modificar sliders analíticos o de render. |
+| **CA-POST-3** | Descarte de tareas obsoletas | Generación de ráfaga de 10 eventos de slider en < 200 ms | El worker procesa a lo sumo 2 renders (el primero y el último), descartando los 8 intermedios. |
+| **CA-POST-4** | Feedback visual de actualización | Verificación de existencia del badge o estado en el canvas | El widget/texto `"⏳ Actualizando..."` se muestra si el cómputo dura $> 80$ ms y desaparece al finalizar. |
+| **CA-POST-5** | Respuesta inmediata de displays numéricos | Inspección de `_labels_display` durante arrastre continuo | El label numérico se actualiza sincrónicamente con el slider (0 ms de delay). |
+| **CA-POST-6** | Invarianza y preservación de suite | Ejecución secuencial de la suite completa de pruebas | 100% de comprobaciones en verde (277+ checks), 0 fallas, exit code 0. |
 
 ---
 
 ## 5. Asignación de Roles del Escuadrón Ani
-- **Fase 5 (Corrección & Reajuste de Plan):** Ani Arquitecta (Tech Lead) — Reajuste del plan y diseño de la corrección.
-- **Fase 2 (Ejecución Técnica de Corrección):** Ani Programadora — Edición de archivos de documentación y test, verificación de suite completa y commit en Git.
-- **Fase 3 (QA & Re-auditoría):** Ani Mal Humor (Vice-Líder & QA Lead) — Certificación de aceptación con suite 100% en verde y working tree clean.
+- **Fase 1 (Triage & Arquitectura):** Ani Arquitecta (Tech Lead) — Diagnóstico de causa raíz, diseño de arquitectura desacoplada y formalización de plan.
+- **Fase 2 (Ejecución Técnica de Cómputo y Caché):** Ani Programadora (Core Logic) — Implementación de caché PCM, worker thread asíncrono y debounce adaptativo.
+- **Fase 2 (Ejecución Técnica de UX & Maquillaje):** Ani Frontend (UI/UX) — Implementación de overlay/badge de actualización, labels inmediatos a 60 fps y cursor de espera.
+- **Fase 3 (QA & Auditoría Falsable):** Ani Mal Humor (Vice-Líder & QA Lead) — Medición de latencia de UI, verificación de caché y auditoría de la suite de 277+ pruebas.
 
 ---
 
 ## 6. Próximo Paso Inmediato (Gate del Capitán)
-El plan queda registrado de forma durable en disco. Cero código de producto ha sido mutado en Fase 1/Corrección. Ani Recepcionista presenta el plan para obtener la aprobación del Capitán antes de habilitar la ejecución en Fase 2.
+El presente plan queda registrado de forma durable en disco. Ninguna línea de código de producto ha sido modificada en este turno. Ani Recepcionista presentará este plan al Capitán para obtener su aprobación explícita antes de habilitar el pase a la Fase 2 de Ejecución Técnica.
