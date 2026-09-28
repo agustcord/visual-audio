@@ -1,135 +1,128 @@
-# Plan de Implementación — Fase 5: Corrección de Estabilidad y Erradicación de Intermitencia en Pruebas (test_gui.py y test_bake.py)
+# Plan de Implementación — Fase 1: Triage de Publicación No Comercial en GitHub & Corrección de Selección de Color en GUI
+
+**Documento canónico del ciclo de trabajo del Escuadrón Ani.**
+**Fecha:** 2026-09-27  
+**Fase del Ciclo Core:** Fase 1 (Triage & Plan)  
+**Autor:** Ani Arquitecta (Tech Lead)  
+**Bóveda resuelta ($LOCAL_VAULT):** `C:\Users\Jonatan Agustín\Desktop\Proyectos\Drift\Plugins\.memory`
+
+---
 
 ## 📌 Pedido Original del Capitán (textual)
-> "mientras mal humor da su revision. Yo ya hice la mia. por mi parte doy un pass! asi que si qa da pass, el veredicto es un pass rotundo"
+> "Ok, entonces lo publiqueremos en github pero solo para uso no comercial, es decir nadie puede vender o integrarlo en un producto comercial. si puede usarlo de forma gratuita. Declara eso un pendiente, luego una cosa a arreglar, y es que el editor de colores de la barras y/ondas, no funciona, si lo hace el de fondo, pero no el de las barras"
 
 ---
 
-## 1. Punto de Partida Factual y Dictamen FAIL de QA (Ani Mal Humor)
-
-Tras la ejecución de las Tareas 2.1 y 2.2 en los turnos T34 y T35, Ani Mal Humor ejecutó la auditoría de Fase 3 QA y emitió dictamen **FAIL** fundamentado en dos condiciones de intermitencia (*flakiness*) y carreras temporales reproducibles en Windows:
-
-1. **Condición de carrera entre el worker asíncrono y el timer de gracia de 80 ms en `tests/test_gui.py` (Tarea 2.7 / CA-POST-4):**
-   - **Mecanismo del fallo:** En la prueba del Bloque B de `tests/test_gui.py` (`criterios_post_mvp_bloque_b`), se evalúa que operaciones rápidas (< 80 ms) no activen el badge visual ni conmuten el cursor a `"watch"`. Para ello, `gui.py` programa un temporizador de gracia de 80 ms (`TIEMPO_GRACIA_BADGE_MS = 80`) mediante `self.root.after(80, self._al_vencer_gracia_badge)`.
-   - **Causa raíz:** Si el planificador de hilos (*scheduler*) de Windows o la carga del sistema operativo retrasa la ejecución del worker secundario o la entrega del evento más de 80 ms, el temporizador vence y ejecuta `_al_vencer_gracia_badge()`, marcando `_badge_visible = True` e incrustando el widget en el canvas justo después de que el cuadro se renderizó o en paralelo a la entrega. Asimismo, cuando `_procesar_resultados_worker()` procesa la entrega en el hilo de Tkinter, si el worker sigue temporalmente en estado ocupado o la cola no se sincroniza en el mismo ciclo, no se purga explícitamente el timer de gracia pendiente, dejando callbacks huérfanos en la cola de Tcl/Tk.
-   - **Impacto:** Fallo intermitente en `afirmar(not app._badge_visible)` en corridas donde Windows introduce jitter en el cambio de contexto entre hilos.
-
-2. **Latencia en frío por inspección de Windows Defender en tempfiles en `tests/test_bake.py` (Tarea 2.5 / CA-REARQ-1):**
-   - **Mecanismo del fallo:** En `test_criterio_ca_rearq_1()`, la prueba crea un directorio temporal con `tempfile.TemporaryDirectory()`, genera un archivo nuevo `.driftbake.npz` (formato contenedor ZIP comprimido) con `analisis.hornear_audio()`, limpia la caché de memoria PCM y procede a medir el tiempo de la segunda carga directa desde disco exigiendo `t_carga_ms <= 100.0`.
-   - **Causa raíz:** En la primera lectura en frío de un archivo nuevo con extensión `.npz` en la carpeta `%TEMP%`, el filtro de protección en tiempo real de Windows Defender (`WdFilter.sys` / `MsMpEng.exe`) intercepta la apertura del archivo para escanear la estructura ZIP del archivo comprimido. En la corrida de QA, esta inspección de seguridad insumió **632 ms**, superando espuriamente el umbral contractual de $\le 100\text{ ms}$, pese a que el motor de deserialización NumPy consume menos de 45 ms una vez liberado el bloqueo de I/O del antivirus.
-   - **Impacto:** Falso negativo por overhead ambiental del sistema operativo y del antivirus en carpetas temporales no excluidas.
+## 1. Justificación de Delegación de Consulta en Fase 0
+- **Veto de sobre-ingeniería / Justificación en una línea:** No se convocó a `ani-pensadora` ni a `ani-investigadora` porque la decisión de licencia ya fue fijada taxativamente por el Capitán ("publicar en github pero solo para uso no comercial"), y la causa raíz del bug de selección de color se localizó empíricamente de forma directa e inequívoca en la línea 537 de `tools/visualizador/gui.py` (`colorchooser.askcolor` desempaquetado de tupla RGB en variable string), sin dependencias externas ni bifurcaciones complejas de arquitectura.
 
 ---
 
-## 2. Especificación Técnica de Corrección
+## 2. Formalización del Pendiente Estratégico: Publicación No Comercial en GitHub
 
-### Bloque A: Solución para Ani Frontend en `tools/visualizador/gui.py` y `tests/test_gui.py` (Tarea 1)
+### 2.1 Contexto y Decisión del Capitán
+En la definición inicial del proyecto (Regla 16 en `docs/RUTA_DE_TRABAJO.md` y `docs/MVP.md`), la distribución a terceros figuraba fuera del alcance inmediato, concibiéndose para uso propio. Tras el cierre exitoso del MVP (`v0.1.0-mvp`) y la certificación de rendimiento determinista a 60 fps (PASS rotundo en T39), el Capitán instruye la publicación pública en GitHub bajo un modelo estricto de **licencia no comercial**.
 
-1. **Cancelación explícita y purga del timer de gracia al recibir resultados:**
-   - En `tools/visualizador/gui.py`, dentro de `_procesar_resultados_worker()` y `_desactivar_estado_computo()`, cancelar inmediatamente el temporizador `_timer_badge_gracia` mediante `self.root.after_cancel(self._timer_badge_gracia)` en cuanto se recibe y valida un resultado de render cuyo `id_tarea` corresponde a la última tarea solicitada, sin depender exclusivamente del vaciado asíncrono de colas secundarias.
-   - Restablecer `self._timer_badge_gracia = None` y `self._calculo_en_progreso = False` de forma determinista.
-
-2. **Guardia de relevancia en `_al_vencer_gracia_badge()`:**
-   - Modificar `_al_vencer_gracia_badge()` para verificar empíricamente si la tarea actual ya fue procesada:
-     ```python
-     def _al_vencer_gracia_badge(self) -> None:
-         self._timer_badge_gracia = None
-         # Solo activar si el cálculo realmente sigue pendiente y no se ha entregado el cuadro
-         if self._calculo_en_progreso and self._id_render_mostrado < self._secuencia_render:
-             self._mostrar_badge_actualizando()
-         else:
-             self._calculo_en_progreso = False
-     ```
-
-3. **Armonización de sincronización en `tests/test_gui.py`:**
-   - En la prueba del Bloque B de `tests/test_gui.py`, purgar explícitamente cualquier callback de timer remanente llamando a `root.update()` y `app._desactivar_estado_computo()` antes de las comprobaciones de estado inactivo.
-   - Para la prueba de retardo inducido (`cuadro_lento` con 160 ms), asegurar un margen temporal suficiente respecto al timer de 80 ms, y en la prueba de cómputo rápido, verificar que el render concluya y cancele la gracia antes de inspeccionar `_badge_visible`.
-
-### Bloque B: Solución para Ani Programadora en `tests/test_bake.py` (Tarea 2)
-
-1. **Pase de calentamiento de FS y/o Mediana Estadística en CA-REARQ-1:**
-   - En `tests/test_bake.py` (`test_criterio_ca_rearq_1`), tras generar el archivo `.driftbake.npz` en la carpeta temporal, realizar una lectura preliminar de descarte (warm-up de FS) que permita a Windows Defender completar su inspección inicial de apertura de archivo ZIP/NPZ y al sistema operativo poblar su caché de páginas.
-   - Medir el tiempo de carga mediante un esquema estadístico robusto: tomar 3 lecturas sucesivas (limpiando la caché interna de memoria de `analisis` entre cada una) y evaluar la mediana o el valor mínimo de las lecturas:
-     ```python
-     tiempos_lectura = []
-     for _ in range(3):
-         analisis.limpiar_cache_pcm()
-         t0 = time.perf_counter()
-         datos_2 = analisis.hornear_audio(pista_tmp, fps=60)
-         tiempos_lectura.append((time.perf_counter() - t0) * 1000.0)
-     t_carga_mediana = float(np.median(tiempos_lectura))
-     afirmar(t_carga_mediana <= 100.0, f"CA-REARQ-1: tiempo de carga directa (mediana 3 lecturas) <= 100 ms ({t_carga_mediana:.2f} ms)")
-     ```
-   - Mantener la verificación estricta de CERO llamadas a FFmpeg (`mock_ffmpeg.call_count == 0`) e identidad binaria bit a bit de matrices.
+### 2.2 Directrices del Pendiente de Publicación
+1. **Modelo de Licencia:** Publicación bajo licencia que garantice uso libre y gratuito para personas creadoras, músicos y editores, pero prohíba de forma terminante la venta comercial directa, la reventa o la integración/embebido en productos comerciales cerrados o privativos de terceros (ej. PolyForm Noncommercial License 1.0.0 o CC BY-NC 4.0 con salvaguardas operativas de código).
+2. **Catalogación:** Se incorpora en la sección de pendientes de la fase de distribución de `RETOMAR.md` y en la memoria del proyecto, para ser abordada al preparar el empaquetado final y los metadatos públicos del repositorio.
+3. **Acciones asociadas para su turno correspondiente:**
+   - Redacción de `LICENSE.md` con los términos no comerciales explícitos.
+   - Ajuste de `README.md` detallando las libertades concedidas (creación musical, videos propios, uso libre personal/creativo) y las prohibiciones (software comercial pago, bundles comerciales).
+   - Limpieza de historial y preparación de releases públicos.
 
 ---
 
-## 3. Desglose de Tareas para la Fase 2 de Ejecución Técnica (Corrección)
+## 3. Diagnóstico Factual de Causa Raíz del Bug de Color en GUI
 
-```mermaid
-flowchart TD
-    subgraph P2_Front["Fase 2: Ani Frontend (Estabilización de Timers y UI)"]
-        T1["T1: Cancelación y purga de timer de gracia en gui.py y test_gui.py"]
-    end
+### 3.1 Localización del Fallo
+El fallo reside exclusivamente en el método `_elegir_color` de `tools/visualizador/gui.py` (líneas 535 a 543):
 
-    subgraph P2_Prog["Fase 2: Ani Programadora (Aislamiento de I/O en test_bake.py)"]
-        T2["T2: Warmup de FS y evaluación mediana en test_bake.py (CA-REARQ-1)"]
-    end
-
-    subgraph P3_QA["Fase 3: Ani Mal Humor (Auditoría de Determinismo)"]
-        T3["T3: 10 ejecuciones consecutivas independientes de test_gui.py (100% verde)"]
-        T4["T4: 10 ejecuciones consecutivas independientes de test_bake.py (100% verde)"]
-        T5["T5: Suite integral completa de 8 scripts sin fallas (exit code 0)"]
-    end
-
-    T1 --> T3
-    T2 --> T4
-    T3 --> T5
-    T4 --> T5
+```python
+535: def _elegir_color(self, nombre: str) -> None:
+536:     actual = str(self._variables[nombre].get())
+537:     nuevo, _ = colorchooser.askcolor(color=actual, title=f"Elegir {nombre}")
+538:     if nuevo:
+539:         hex_mayus = nuevo.upper()
+540:         self._variables[nombre].set(hex_mayus)
+541:         self._actualizar_muestra_color(nombre, hex_mayus)
+542:         self._al_cambiar_parametro(nombre)
 ```
 
-### Bloque 1: Sincronización y Purga de Timers en GUI (Asignado a: Ani Frontend)
-- [ ] **Tarea 1.1 — Robustecer `tools/visualizador/gui.py` contra carreras de timer:**
-  - Implementar cancelación explícita inmediata de `_timer_badge_gracia` al recibir el cuadro renderizado en `_procesar_resultados_worker()`.
-  - Añadir guardia contra tareas ya cumplidas (`self._id_render_mostrado < self._secuencia_render`) en `_al_vencer_gracia_badge()`.
-- [ ] **Tarea 1.2 — Sincronizar aserciones de feedback visual en `tests/test_gui.py`:**
-  - Garantizar purga y espera determinista en `criterios_post_mvp_bloque_b()`.
+### 3.2 Mecanismo del Error
+1. **Firma y retorno de Tkinter:** El diálogo nativo `tkinter.colorchooser.askcolor(color=..., title=...)` retorna una tupla de dos elementos: `((r, g, b), hex_color_string)` (por ejemplo `((255, 0, 0), '#ff0000')`), o `(None, None)` en caso de que el usuario presione "Cancelar".
+2. **Desempaquetado invertido / erróneo:** En la línea 537, el código realiza `nuevo, _ = colorchooser.askcolor(...)`. Esto asigna:
+   - `nuevo = (r, g, b)` (una tupla de 3 enteros).
+   - `_ = '#rrggbb'` (el string hexadecimal con el color elegido, descartado en la variable muda `_`).
+3. **Excepción inmediata en tiempo de ejecución:** En la línea 539, se ejecuta `hex_mayus = nuevo.upper()`. Dado que `nuevo` es una tupla (`<class 'tuple'>`), Python eleva:
+   ```text
+   AttributeError: 'tuple' object has no attribute 'upper'
+   ```
+4. **Consecuencia visible para el usuario:** El bucle de eventos de Tkinter captura la excepción internamente o la envía a stderr sin romper la ventana, pero la ejecución de `_elegir_color` se interrumpe de forma fulminante **antes** de mutar `self._variables[nombre].set(...)`, antes de actualizar la muestra gráfica (`_actualizar_muestra_color`) y antes de notificar al pipeline de renderizado (`_al_cambiar_parametro`). La selección se anula por completo y el color no cambia.
+5. **Por qué el selector de fondo sí funciona:** En la interfaz, "Modo de fondo" (`fondo`) es un desplegable `ttk.Combobox` con opciones `"negro"`, `"color"`, `"transparente"`. Su cambio no invoca `colorchooser.askcolor`, sino `_al_cambiar_parametro("fondo")`, el cual actualiza inmediatamente el canvas en `_proyectar_en_canvas` aplicando el color de base correspondiente. Si el usuario modifica el modo de fondo, el visor responde; pero si intenta elegir el color de las barras o de la onda mediante el botón o la muestra de color, el diálogo falla por el `AttributeError`.
 
-### Bloque 2: Estabilización de Lectura de Pre-Bake en Tempfiles (Asignado a: Ani Programadora)
-- [ ] **Tarea 2.1 — Implementar warmup de FS y evaluación estadística en `tests/test_bake.py`:**
-  - Incorporar pase de pre-lectura de calentamiento en `test_criterio_ca_rearq_1()`.
-  - Medir la latencia con la mediana de 3 lecturas independientes con caché de memoria limpia.
-  - Mantener contrato formal $\le 100\text{ ms}$ y 0 llamadas a FFmpeg.
-
----
-
-## 4. Estrategia de Verificación y Criterios de Aceptación Falsables para Fase 3 (QA)
-
-| ID | Criterio de Aceptación | Umbral Medible Falsable | Método de Medición |
-|---|---|---|---|
-| **CA-ESTAB-1** | Determinismo Absoluto en `tests/test_gui.py` | 10 ejecuciones consecutivas e independientes del script `tests/test_gui.py` arrojan 10 éxitos consecutivos (10/10) con 0 aserciones fallidas y exit code 0. | Bucle de 10 ejecuciones desatendidas en PowerShell. |
-| **CA-ESTAB-2** | Determinismo Absoluto en `tests/test_bake.py` | 10 ejecuciones consecutivas e independientes del script `tests/test_bake.py` arrojan 10 éxitos consecutivos (10/10) con 0 aserciones fallidas y exit code 0. | Bucle de 10 ejecuciones desatendidas en PowerShell. |
-| **CA-ESTAB-3** | Inmunidad a Escaneo en Frío de Antivirus | La latencia representativa (mediana) de carga directa de `.driftbake.npz` en disco es $\le 100\text{ ms}$ con 0 llamadas a FFmpeg. | Medición instrumentada en `test_bake.py` sobre archivo recién creado en `%TEMP%`. |
-| **CA-ESTAB-4** | Purga Inmediata de Timers de Feedback Visual | Ningún temporizador de gracia de 80 ms dispara el badge `"⏳ Actualizando..."` tras la entrega del fotograma al canvas. | Aserción determinista en `test_gui.py` con trazabilidad de `_badge_visible`. |
-| **CA-CORR-2** | Integridad Global de la Suite | Los 8 scripts del proyecto pasan al 100% en verde con 0 regresiones. | Ejecución secuencial consolidada de la suite en disco. |
+### 3.3 Verificación de Motores de Render
+Se verificó empíricamente mediante pruebas directas en consola que los motores `Render`, `Barras`, `Espejadas` y `Onda` en `tools/visualizador/render.py` y `tools/visualizador/estilos/` consumen y renderizan correctamente los colores cuando reciben cadenas hexadecimales válidas en `p["color"]` o `p["color_final"]`. El problema no es de render ni de shaders ni de LOD: es estrictamente el manejo del diálogo en `gui.py`.
 
 ---
 
-## 5. Lista de Cotejo Previa a Emitir el Plan (8 Puntos Obligatorios de Arquitectura)
+## 4. Especificación Técnica de Corrección (Fase 2)
 
-1. **¿Alguna tarea contradice una regla escrita de un documento canónico?**
-   - No. Se respeta la Regla 13 de `docs/RUTA_DE_TRABAJO.md` (cero dependencias externas nuevas), el contrato MVP-5 de `docs/ARQUITECTURA.md` y los umbrales de latencia aprobados.
-2. **¿Las herramientas, rutas, skills y comandos que nombro existen y hacen lo que digo?**
-   - Sí. Las rutas de los archivos de prueba (`tests/test_gui.py`, `tests/test_bake.py`) y módulos (`tools/visualizador/gui.py`) fueron verificadas en disco.
-3. **¿Cubre todos los requisitos del pedido, incluidos los que una corrida anterior ya cumplía?**
-   - Sí. Cubre puntualmente las dos fuentes de intermitencia aisladas por Ani Mal Humor (carrera del timer de 80 ms y latencia en frío de Windows Defender).
-4. **¿Cada criterio de aceptación puede fallar (falsable)?**
-   - Sí. Si el timer se dispara fuera de tiempo o si el antivirus degrada la mediana por encima de 100 ms, las pruebas fallan con exit code 1.
-5. **¿Alguna tarea borra, sobrescribe o mueve algo, y si sí, está autorizado por el Capitán?**
-   - No borra archivos del producto ni presets; ajusta la sincronización de timers en `gui.py` y el método de medición en los tests.
-6. **¿Cité el documento canónico que gobierna?**
-   - Sí. Se cita `docs/ARQUITECTURA.md`, `docs/MVP.md`, `docs/RUTA_DE_TRABAJO.md` y los handoffs previos T34 y T35.
-7. **¿Si el entregable corre desatendido, prevé detección de fallas, muerte silenciosa y plan de supervisión?**
-   - Sí. Se definió la estrategia de 10 ejecuciones consecutivas independientes con verificación de exit code en cada iteración.
-8. **¿El plan de validación emite veredicto definitivo en <= 48h?**
-   - Sí. Las 10 ejecuciones consecutivas de ambos tests se completan en menos de 3 minutos en disco.
+### 4.1 Asignación de Roles
+- **Ani Frontend:**
+  - Corrección de `tools/visualizador/gui.py` en `_elegir_color(nombre)`.
+  - Incorporación de pruebas automáticas en `tests/test_gui.py` que emulen la interacción con el selector de color (`colorchooser.askcolor`) para `color`, `color_final` y `color_fondo`, validando tanto la selección efectiva como la cancelación.
+- **Ani Programadora:**
+  - Sin tareas en el motor de render (`render.py` o `analisis.py`), dado que el backend opera de forma correcta e invariante. Apoyo en verificación si surgieran detalles en contratos.
+
+### 4.2 Detalle de la Corrección en `tools/visualizador/gui.py`
+En `_elegir_color`, se reemplaza el desempaquetado defectuoso por una lectura segura del componente hexadecimal:
+
+```python
+    def _elegir_color(self, nombre: str) -> None:
+        actual = str(self._variables[nombre].get())
+        resultado = colorchooser.askcolor(color=actual, title=f"Elegir {nombre}")
+        # resultado es ((r, g, b), '#rrggbb') o (None, None) / None si se cancela
+        if resultado and resultado[1]:
+            hex_str = str(resultado[1])
+            hex_mayus = hex_str.upper()
+            self._variables[nombre].set(hex_mayus)
+            self._actualizar_muestra_color(nombre, hex_mayus)
+            self._al_cambiar_parametro(nombre)
+```
+
+Beneficios de esta implementación:
+1. Extrae explícitamente `resultado[1]`, que contiene la cadena `#rrggbb`.
+2. Si el usuario cancela (`resultado[1]` es `None` o vacío), la función retorna de forma limpia sin arrojar excepciones ni alterar el valor actual.
+3. Convierte a mayúsculas de forma segura (`.upper()`) y persiste en `self._variables[nombre]`.
+4. Actualiza la muestra de color en la UI con cálculo de contraste de luminancia (`_es_color_oscuro`).
+5. Dispara `_al_cambiar_parametro(nombre)`, respetando el debounce cosmético adaptativo de 30 ms y encolando el render en el worker asíncrono.
+
+---
+
+## 5. Criterios de Aceptación Falsables para Fase 3 (Ani Mal Humor)
+
+| ID | Criterio | Verificación / Evidencia Falsable |
+|---|---|---|
+| **CA-COLOR-1** | **Selección exitosa de color en diálogo:** Al invocarse `_elegir_color("color")` simulando retorno `((255, 0, 0), '#ff0000')`, la variable Tkinter `app.obtener_variable("color").get()` muta a `"#FF0000"`. | Aserción en `tests/test_gui.py` con `patch("tkinter.colorchooser.askcolor")`. |
+| **CA-COLOR-2** | **Cancelación limpia de diálogo:** Al invocarse `_elegir_color("color")` simulando cancelación `(None, None)`, la variable `app.obtener_variable("color").get()` preserva su valor original y no se lanzan excepciones. | Aserción en `tests/test_gui.py` con `patch("tkinter.colorchooser.askcolor", return_value=(None, None))`. |
+| **CA-COLOR-3** | **Actualización de muestra visual y accesibilidad:** La etiqueta de muestra de color (`_muestras_color[nombre]`) actualiza su fondo `bg`, su texto y su color de texto `fg` con contraste accesible según luminancia (blanco para oscuros, negro para claros). | Aserción en `tests/test_gui.py` inspeccionando `lbl.cget("bg")` y `lbl.cget("fg")`. |
+| **CA-COLOR-4** | **Regeneración de fotograma y render con nuevo color:** Tras cambiar el color a rojo (`#FF0000`) en estilo Barras y esperar el render asíncrono, el fotograma proyectado en el canvas contiene píxeles con canal rojo activo correspondientes a las barras. | Comprobación en `tests/test_gui.py` analizando los píxeles del cuadro resultante o invocación a `Render`. |
+| **CA-COLOR-5** | **Suite integral al 100% en verde:** Todos los 8 scripts de la suite de pruebas pasan sin fallas (`exit code 0`, 388+ checks). | Ejecución completa de la suite sin regresiones. |
+
+---
+
+## 6. Lista de Cotejo Previa a Emitir un Plan (8 Puntos Obligatorios)
+1. **¿Alguna tarea contradice una regla escrita de un documento canónico?** No. Se respeta la arquitectura desacoplada, la no adición de librerías externas (Regla 13) y la invarianza de exportación (MVP-5).
+2. **¿Las herramientas, rutas, skills y comandos que nombro existen y hacen lo que digo?** Sí, verificado en disco con Python 3.14.6 y Tkinter.
+3. **¿Cubre todos los requisitos del pedido?** Sí: registra el pendiente de publicación no comercial en GitHub e investiga y planifica la solución al bug de colores de barras y ondas.
+4. **¿Cada criterio de aceptación puede fallar (falsable)?** Sí, si `askcolor` sigue devolviendo tupla a `nuevo.upper()`, los tests CA-COLOR-1 a CA-COLOR-4 fallan de inmediato con `AttributeError`.
+5. **¿Alguna tarea borra, sobrescribe o mueve algo, y si sí, está autorizado?** No se borra nada; solo se corrige la función en `gui.py` y se agregan pruebas.
+6. **¿Cité el documento canónico que gobierna?** Sí (`docs/ARQUITECTURA.md`, `docs/MVP.md`, `RETOMAR.md`).
+7. **¿Si el entregable corre desatendido, prevé detección de fallas?** Sí, el manejo de cancelación y retorno None previene excepciones desatendidas.
+8. **¿El plan de validación emite veredicto definitivo en <= 48h?** Sí, se valida en menos de 5 segundos mediante la suite de tests automáticos.
+
+---
+
+## 🚦 Gate del Capitán
+Este plan requiere la aprobación formal del Capitán ("procede" / "adelante") para habilitar a Ani Frontend a aplicar la corrección en `tools/visualizador/gui.py` y los tests asociados en `tests/test_gui.py`.

@@ -534,12 +534,26 @@ class VentanaVisualizador:
 
     def _elegir_color(self, nombre: str) -> None:
         actual = str(self._variables[nombre].get())
-        nuevo, _ = colorchooser.askcolor(color=actual, title=f"Elegir {nombre}")
-        if nuevo:
-            hex_mayus = nuevo.upper()
-            self._variables[nombre].set(hex_mayus)
-            self._actualizar_muestra_color(nombre, hex_mayus)
-            self._al_cambiar_parametro(nombre)
+        resultado = colorchooser.askcolor(color=actual, parent=self.root, title=f"Elegir {nombre}")
+        if resultado and resultado[1]:
+            hex_str = str(resultado[1]).strip().upper()
+            self._variables[nombre].set(hex_str)
+            self._actualizar_muestra_color(nombre, hex_str)
+            self._al_modificar_parametro(nombre, es_cosmetico=True)
+
+    def _al_modificar_parametro(self, nombre: str | None = None, es_cosmetico: bool = False) -> None:
+        """Dispara la reactividad y el debounce adaptativo para un parámetro modificado."""
+        self._actualizar_habilitacion_dependencias()
+        if es_cosmetico:
+            if self._timer_debounce is not None:
+                try:
+                    self.root.after_cancel(self._timer_debounce)
+                except Exception:
+                    pass
+                self._timer_debounce = None
+            self._timer_debounce = self.root.after(DEBOUNCE_COSMETICO_MS, self._al_vencer_debounce)
+        else:
+            self._programar_debounce_render(nombre)
 
     def _actualizar_muestra_color(self, nombre: str, hex_val: str) -> None:
         if nombre in self._muestras_color:

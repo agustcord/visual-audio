@@ -891,6 +891,131 @@ def criterios_rearquitectura_bloque_2(tmp_dir: Path) -> None:
             pass
 
 
+def probar_selector_color_barras_y_ondas(tmp_dir: Path) -> None:
+    print("\n========================================================================")
+    print("Pruebas de Selector de Color en Barras y Ondas (CA-COLOR-1 a CA-COLOR-5)")
+    print("========================================================================")
+    root, app = crear_app_test(tmp_dir)
+    try:
+        with patch("tkinter.messagebox.showinfo"), patch("tkinter.messagebox.showwarning"), patch("tkinter.messagebox.showerror"):
+            # 1. Cargar audio y posicionar en cuadro con señal
+            app.cargar_audio(PISTA_PRUEBA)
+            root.update()
+            app.cambiar_estilo("barras")
+            app._cuadro_actual = 60
+            app._actualizar_vista_previa_inmediata()
+            app._solicitar_render_async()
+            app.esperar_render_async(timeout=4.0)
+            root.update()
+
+            # 2. CA-COLOR-1: Selección de nuevo color (#FF0000) en estilo barras
+            with patch("tkinter.colorchooser.askcolor", return_value=((255, 0, 0), "#ff0000")) as mock_ask:
+                app._elegir_color("color")
+                root.update()
+                mock_ask.assert_called_once()
+                args, kwargs = mock_ask.call_args
+                afirmar(kwargs.get("parent") == app.root, "parent=self.root pasado a colorchooser.askcolor")
+                afirmar(kwargs.get("title") == "Elegir color", "título correcto pasado a colorchooser.askcolor")
+
+            afirmar(app.obtener_variable("color").get() == "#FF0000",
+                    "CA-COLOR-1: variable 'color' muta a #FF0000 tras selección")
+
+            # 3. CA-COLOR-3: Actualización de muestra y accesibilidad de contraste
+            lbl_muestra = app._muestras_color["color"]
+            afirmar(lbl_muestra.cget("bg").upper() == "#FF0000",
+                    "CA-COLOR-3: muestra de color actualiza fondo bg a #FF0000")
+            afirmar(lbl_muestra.cget("text").upper() == "#FF0000",
+                    "CA-COLOR-3: muestra de color actualiza texto a #FF0000")
+            afirmar(lbl_muestra.cget("fg").upper() == "#FFFFFF",
+                    "CA-COLOR-3: contraste accesible fg=#FFFFFF para color oscuro #FF0000")
+
+            # 4. CA-COLOR-2: Cancelación limpia de diálogo (mock retorna (None, None))
+            with patch("tkinter.colorchooser.askcolor", return_value=(None, None)):
+                app._elegir_color("color")
+                root.update()
+
+            afirmar(app.obtener_variable("color").get() == "#FF0000",
+                    "CA-COLOR-2: cancelación (None, None) preserva valor #FF0000")
+            afirmar(app._muestras_color["color"].cget("bg").upper() == "#FF0000",
+                    "CA-COLOR-2: muestra conserva fondo previo tras cancelación")
+
+            # Cancelación con retorno None directo
+            with patch("tkinter.colorchooser.askcolor", return_value=None):
+                app._elegir_color("color")
+                root.update()
+
+            afirmar(app.obtener_variable("color").get() == "#FF0000",
+                    "CA-COLOR-2: retorno None no produce excepciones ni altera valor")
+
+            # 5. Selección de color claro (#00FF00) para validar contraste invertido
+            with patch("tkinter.colorchooser.askcolor", return_value=((0, 255, 0), "#00ff00")):
+                app._elegir_color("color")
+                root.update()
+
+            afirmar(app.obtener_variable("color").get() == "#00FF00",
+                    "CA-COLOR-1: variable 'color' muta a #00FF00 tras selección")
+            afirmar(app._muestras_color["color"].cget("fg").upper() == "#000000",
+                    "CA-COLOR-3: contraste accesible fg=#000000 para color claro #00FF00")
+
+            # 6. Interacción mediante click en la muestra de color (evento <Button-1>)
+            with patch("tkinter.colorchooser.askcolor", return_value=((255, 0, 0), "#ff0000")):
+                app._muestras_color["color"].event_generate("<Button-1>")
+                root.update()
+
+            afirmar(app.obtener_variable("color").get() == "#FF0000",
+                    "interacción: click sobre muestra de color dispara selector y actualiza variable")
+
+            # 7. CA-COLOR-4: Debounce adaptativo y regeneración de fotograma en worker/canvas
+            t_debounce = app._tiempo_debounce_para("color")
+            afirmar(t_debounce <= 30, f"CA-COLOR-4: debounce cosmético configurado en <= 30 ms ({t_debounce} ms)")
+
+            # Esperar a que venza el debounce cosmético de 30 ms y procese el render asíncrono
+            time.sleep(0.04)
+            root.update()
+            ok_render = app.esperar_render_async(timeout=4.0)
+            root.update()
+            afirmar(ok_render, "CA-COLOR-4: render asíncrono completado tras debounce cosmético")
+
+            cuadro_barras = app.obtener_cuadro_actual_raw()
+            afirmar(cuadro_barras is not None, "CA-COLOR-4: fotograma de barras generado")
+            if cuadro_barras is not None:
+                arr_barras = np.array(cuadro_barras)
+                pixeles_rojos = np.count_nonzero(
+                    (arr_barras[:, :, 0] > 200) & (arr_barras[:, :, 1] < 50) & (arr_barras[:, :, 2] < 50) & (arr_barras[:, :, 3] > 0)
+                )
+                afirmar(pixeles_rojos > 0, f"CA-COLOR-4: fotograma de barras proyecta color rojo ({pixeles_rojos} píxeles)")
+
+            # 8. Verificación en estilo 'onda' y color secundario 'color_final'
+            app.cambiar_estilo("onda")
+            root.update()
+            with patch("tkinter.colorchooser.askcolor", return_value=((0, 255, 0), "#00ff00")):
+                app._elegir_color("color")
+                root.update()
+
+            afirmar(app.obtener_variable("color").get() == "#00FF00",
+                    "CA-COLOR-1: selector funciona correctamente en estilo 'onda'")
+
+            time.sleep(0.04)
+            root.update()
+            app.esperar_render_async(timeout=4.0)
+            root.update()
+
+            cuadro_onda = app.obtener_cuadro_actual_raw()
+            afirmar(cuadro_onda is not None, "CA-COLOR-4: fotograma de onda generado")
+            if cuadro_onda is not None:
+                arr_onda = np.array(cuadro_onda)
+                pixeles_verdes = np.count_nonzero(
+                    (arr_onda[:, :, 1] > 200) & (arr_onda[:, :, 0] < 50) & (arr_onda[:, :, 2] < 50) & (arr_onda[:, :, 3] > 0)
+                )
+                afirmar(pixeles_verdes > 0, f"CA-COLOR-4: fotograma de onda proyecta color verde ({pixeles_verdes} píxeles)")
+
+    finally:
+        try:
+            root.destroy()
+        except Exception:
+            pass
+
+
 def main() -> int:
     print("Pruebas Automatizadas de Interfaz Gráfica Tkinter (Etapa 5 y 7)")
     print(f"  pista   : {PISTA.name}\n")
@@ -908,6 +1033,7 @@ def main() -> int:
         criterios_post_mvp_bloque_a(tmp_dir)
         criterios_post_mvp_bloque_b(tmp_dir)
         criterios_rearquitectura_bloque_2(tmp_dir)
+        probar_selector_color_barras_y_ondas(tmp_dir)
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
