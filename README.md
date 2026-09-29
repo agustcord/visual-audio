@@ -73,7 +73,7 @@ Visual Audio genera overlays de audio-reactividad (espectrograma FFT y oscilosco
 
 ```powershell
 # 1. Clonar el repositorio
-git clone https://github.com/tu-usuario/visual-audio.git
+git clone https://github.com/agustcord/visual-audio.git
 cd visual-audio
 
 # 2. Instalar dependencias de Python

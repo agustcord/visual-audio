@@ -31,8 +31,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/JonatanCordoba/visual-audio"
-Issues = "https://github.com/JonatanCordoba/visual-audio/issues"
+Homepage = "https://github.com/agustcord/visual-audio"
+Issues = "https://github.com/agustcord/visual-audio/issues"
 
 [project.scripts]
 visual-audio = "visualizador.cli:main"
