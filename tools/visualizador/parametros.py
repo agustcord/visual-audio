@@ -410,7 +410,7 @@ ESQUEMA: dict[str, Valor] = {
     ),
     "fondo": Valor(
         etiqueta="Modo de fondo",
-        tipo=str, default="negro", opciones=("transparente", "negro", "color"),
+        tipo=str, default="transparente", opciones=("transparente", "negro", "color"),
         grupo="salida",
         ayuda="Cómo se recorta el fondo en tu editor de video. 'negro' se compone con la fusión "
               "Trama; 'color' se recorta con el efecto Chroma Key; 'transparente' "

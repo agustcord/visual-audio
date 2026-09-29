@@ -50,13 +50,13 @@ CRF = {"alta": 30, "media": 36, "baja": 44}
 # Consejo que se imprime al terminar, según el modo. Vale más acá que en la
 # documentación: es el momento en que la persona va a ir a Drift.
 SIGUIENTE_PASO = {
-    "negro": "En Drift: importalo, ponelo en una pista por encima del video, y "
+    "negro": "En tu editor de video: importalo, ponelo en una pista por encima del video, y "
              "poné el modo de fusión en «Trama».",
-    "color": "En Drift: importalo, pista por encima del video con fusión Normal, "
+    "color": "En tu editor de video: importalo, pista por encima del video con fusión Normal, "
              "agregale el efecto «Chroma Key», poné Key Colour en el tono de tu "
              "fondo y subí Tolerance.",
-    "transparente": "En Drift: importalo y ponelo en una pista por encima. OJO: "
-                    "esto NECESITA Drift 0.7.0 o superior. En 0.6.0 el canal alpha "
+    "transparente": "En tu editor de video: importalo y ponelo en una pista por encima. OJO: "
+                    "esto NECESITA un editor que soporte canal alpha. Si no es compatible, el canal alpha "
                     "se descarta y vas a ver un rectángulo negro.",
 }
 
@@ -128,6 +128,7 @@ def exportar(render: Render, destino: Path,
     entrada = [
         "-f", "rawvideo", "-pix_fmt", "rgba",
         "-s", f"{ancho}x{alto}", "-r", str(fps), "-i", "-",
+        "-i", str(render.analisis.ruta_audio),
     ]
 
     filtro: list[str] = []
@@ -141,7 +142,6 @@ def exportar(render: Render, destino: Path,
             "-filter_complex",
             f"color=c={relleno}:s={ancho}x{alto}:r={fps}:d={duracion:.6f}[fondo];"
             f"[fondo][0:v]overlay=0:0:format=auto:shortest=1[v]",
-            "-map", "[v]",
         ]
 
     cmd = [
@@ -149,9 +149,9 @@ def exportar(render: Render, destino: Path,
         *entrada,
         *filtro,
         *_argumentos_de_codec(con_alpha, crf),
-        # El overlay no lleva audio: ya está en la timeline de Drift, y duplicarlo
-        # sólo sumaría peso y riesgo de doble reproducción.
-        "-an",
+        "-map", "0:v" if con_alpha else "[v]",
+        "-map", "1:a",
+        "-af", "loudnorm=I=-14:TP=-1",
         str(destino),
     ]
 
