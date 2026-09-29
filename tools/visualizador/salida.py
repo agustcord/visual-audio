@@ -1,4 +1,4 @@
-"""Salida: cuadros → archivo de video para Drift.
+"""Salida: cuadros → archivo de video para tu NLE.
 
 Los cuadros van por **entrada estándar a FFmpeg**, sin escribir imágenes
 intermedias: cinco mil PNG en disco para después borrarlos no aporta nada y llena
@@ -7,19 +7,19 @@ el disco.
 ## Los parámetros de codificación no se inventaron acá
 
 Salen de `tools/generar_overlay.py`, que es el generador de la prueba de concepto y
-está verificado contra Drift. Incluye cosas que no son obvias y que costó
+está verificado contra tu NLE. Incluye cosas que no son obvias y que costó
 descubrir:
 
 - **`-auto-alt-ref 0` y `-lag-in-frames 0` para VP9 con alpha.** El propio
-  exportador de Drift lo desactiva cuando el preset lleva alpha, con el comentario
+  exportador de tu NLE lo desactiva cuando el preset lleva alpha, con el comentario
   de que VP9 con plano alpha no puede usar cuadros de referencia alternativos.
-- **El modo transparente sólo sirve en Drift 0.7.0 o superior.** La 0.6.0 descarta
+- **El modo transparente sólo sirve en tu NLE 0.7.0 o superior.** La 0.6.0 descarta
   el canal alpha y compone el clip como un rectángulo negro. Verificado contra el
   binario instalado: los presets de exportación con alpha no existen ahí.
 
 ## Los tres modos de fondo
 
-| modo | qué produce | cómo se usa en Drift |
+| modo | qué produce | cómo se usa en tu NLE |
 |---|---|---|
 | `negro` | fondo negro sólido | modo de fusión **Trama** |
 | `color` | fondo de un color plano | efecto **Chroma Key** |
@@ -48,7 +48,7 @@ from .render import Render
 CRF = {"alta": 30, "media": 36, "baja": 44}
 
 # Consejo que se imprime al terminar, según el modo. Vale más acá que en la
-# documentación: es el momento en que la persona va a ir a Drift.
+# documentación: es el momento en que la persona va a ir a su NLE.
 SIGUIENTE_PASO = {
     "negro": "En tu editor de video: importalo, ponelo en una pista por encima del video, y "
              "poné el modo de fusión en «Trama».",
@@ -91,7 +91,7 @@ def _argumentos_de_codec(con_alpha: bool, crf: int) -> list[str]:
     ]
     if con_alpha:
         # No es opcional: sin esto el plano alpha se desalinea de los cuadros.
-        # El exportador de Drift hace lo mismo.
+        # El exportador del NLE hace lo mismo.
         args += ["-auto-alt-ref", "0", "-lag-in-frames", "0"]
     return args
 

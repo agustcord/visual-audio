@@ -50,7 +50,7 @@ def a_hex(rgb01: np.ndarray) -> str:
 
 
 def trama(base: np.ndarray, src: np.ndarray) -> np.ndarray:
-    """Fusión Trama de Drift: out = 1.0 - (1.0 - base) * (1.0 - src)."""
+    """Fusión Trama de tu NLE: out = 1.0 - (1.0 - base) * (1.0 - src)."""
     return 1.0 - (1.0 - np.asarray(base, dtype=np.float64)) * (1.0 - np.asarray(src, dtype=np.float64))
 
 
