@@ -56,7 +56,18 @@ $RECYCLE.BIN/
 secrets.json
 mcp-token*
 
-# --- Scratch de la bóveda de memoria ---
-# Los handoffs y la wiki SÍ se versionan (son el registro del proyecto).
-# El scratch es material desechable de cada turno.
-.memory/scratch/
+# --- Bóveda de memoria local y orquestación del Escuadrón Ani ---
+.memory/
+RETOMAR.md
+implementation_plan.md
+sobre_este_plugins.txt
+
+# --- Documentos internos y deliberativos ---
+docs/evidencia/
+docs/PLAN_ETAPA1.md
+docs/MVP.md
+docs/VIABILIDAD.md
+docs/POC_RESULTADOS.md
+docs/PRUEBA_T3_ALPHA.md
+docs/RUTA_DE_TRABAJO.md
+docs/DECISION_MOTOR_DE_DIBUJO.md
