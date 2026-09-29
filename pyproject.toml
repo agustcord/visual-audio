@@ -5,14 +5,14 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "visual-audio"
 version = "0.1.0"
-description = "Visualizador de audio reactivo de alto rendimiento para Drift y suites de video."
+description = "Visualizador de audio reactivo de alto rendimiento para editores de video."
 readme = "README.md"
 license = "PolyForm-Noncommercial-1.0.0"
 requires-python = ">=3.10"
 authors = [
     { name = "Jonatan Córdoba" },
 ]
-keywords = ["audio", "visualizer", "fft", "drift", "video", "overlay"]
+keywords = ["audio", "visualizer", "fft", "video", "overlay"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: End Users/Desktop",

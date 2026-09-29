@@ -5,7 +5,7 @@
 <h1 align="center">Visual Audio</h1>
 
 <p align="center">
-  <em>Visualizador de audio reactivo de alto rendimiento para Drift y suites de video.</em>
+  <em>Visualizador de audio reactivo de alto rendimiento para editores de video.</em>
 </p>
 
 <p align="center">
@@ -14,7 +14,6 @@
   <img src="https://img.shields.io/badge/python-3.10%2B-3776AB" alt="Python">
   <img src="https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-green" alt="License">
   <img src="https://img.shields.io/badge/render-Viewport%20LOD%20%4060%20FPS-00E5FF" alt="Render">
-  <img src="https://img.shields.io/badge/integración-Drift%200.6.0%2B-FF6B35" alt="Drift">
 </p>
 
 ---
@@ -23,14 +22,14 @@
 
 Visual Audio genera overlays de audio-reactividad (espectrograma FFT y osciloscopio de onda) con precisión matemática, soporte de canal transparente / modo Trama y previsualización interactiva a 60 fps con pre-bake en tiempo constante O(1).
 
-**En una línea:** Cargás tu canción, elegís un estilo, escuchás la música sincronizada en tiempo real y exportás un video WebM listo para componer en Drift (o cualquier editor de video).
+**En una línea:** Cargás tu canción, elegís un estilo, escuchás la música sincronizada en tiempo real y exportás un video WebM listo para componer en tu editor de video (Premiere, DaVinci Resolve, After Effects, etc).
 
 ### Características principales
 
 - **3 estilos de visualización:** Barras de frecuencia, Barras espejadas y Onda simétrica.
 - **Previsualización en tiempo real:** Viewport LOD a 60 FPS con reproductor de audio sincronizado (play, pausa, scrubbing).
 - **Exportación determinista:** Lo que ves en la vista previa es exactamente lo que se exporta (MVP-5).
-- **Composición perfecta en Drift:** Fondo negro + modo de fusión Trama (Screen) con compensación de color automática.
+- **Composición perfecta:** Fondo negro + modo de fusión Trama (Screen) con compensación de color automática para editores de video.
 - **Presets de fábrica:** Barras Neón, Barras Blancas, Espejadas Frecuencia, Onda Suave — y podés crear los tuyos.
 - **Tema Dark Zinc 950/900:** Interfaz moderna con acentos cian y violeta.
 
@@ -116,14 +115,14 @@ python -m visualizador mi_cancion.wav -o salida.webm --preset barras_neon
 python -m visualizador mi_cancion.wav -o salida.webm --estilo onda --color "#00FFCC" --grosor_linea 4
 ```
 
-### Composición en Drift
+### Composición en editores de video
 
 1. Exportá el video WebM desde Visual Audio.
-2. Importá el archivo `.webm` en Drift 0.6.0+ y ubicalo en una pista por encima del video.
+2. Importá el archivo `.webm` en tu editor de video (Premiere, DaVinci Resolve, After Effects, etc.) y ubicalo en una pista por encima del video principal.
 3. Poné el modo de fusión en **Trama (Screen)**.
 4. El fondo negro desaparece de forma exacta y el overlay queda compuesto.
 
-> **Nota:** Drift 0.6.0 no procesa video con canal alpha nativo en el timeline. El método estándar verificado es fondo negro + fusión Trama. Cuando esté disponible Drift 0.7.0, el modo `--fondo transparente` ya está construido en el motor y listo para usarse.
+> **Nota:** El método estándar verificado para máxima compatibilidad es fondo negro + fusión Trama. El modo `--fondo transparente` ya está construido en el motor y listo para usarse si tu editor lo soporta nativamente.
 
 Para detalles sobre compensación de color y ajuste fino, consultá [`docs/GUIA_DE_USO.md`](docs/GUIA_DE_USO.md) y [`docs/COLOR_EN_TRAMA.md`](docs/COLOR_EN_TRAMA.md).
 
@@ -221,5 +220,3 @@ Consultá el archivo [`LICENSE`](LICENSE) para el texto legal completo.
 ## Créditos
 
 Creado por **Jonatan Córdoba**.
-
-Visual Audio es un proyecto independiente. No forma parte de [CutWire Studios](https://github.com/CutWire-Studios) ni del equipo de desarrollo de [Drift](https://github.com/CutWire-Studios/Drift). Es una herramienta complementaria externa que produce metraje compatible para ser compuesto en la línea de tiempo de Drift.

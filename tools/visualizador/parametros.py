@@ -310,13 +310,13 @@ ESQUEMA: dict[str, Valor] = {
     "lienzo_ancho": Valor(
         etiqueta="Ancho del lienzo",
         tipo=int, default=1920, minimo=16, maximo=7680, grupo="posicion", unidad="px",
-        ayuda="El del proyecto de Drift. Generar al tamaño exacto evita que Drift "
+        ayuda="El del proyecto de tu editor de video. Generar al tamaño exacto evita que el editor "
               "tenga que escalar o rellenar el clip.",
     ),
     "lienzo_alto": Valor(
         etiqueta="Alto del lienzo",
         tipo=int, default=1080, minimo=16, maximo=4320, grupo="posicion", unidad="px",
-        ayuda="El del proyecto de Drift.",
+        ayuda="El del proyecto de tu editor de video.",
     ),
     "ancho": Valor(
         etiqueta="Ancho del dibujo",
@@ -365,7 +365,7 @@ ESQUEMA: dict[str, Valor] = {
     "opacidad": Valor(
         etiqueta="Opacidad",
         tipo=float, default=1.0, minimo=0.0, maximo=1.0, grupo="color",
-        ayuda="De todo el dibujo. También se puede ajustar en Drift sobre el clip, "
+        ayuda="De todo el dibujo. También se puede ajustar en tu editor sobre el clip, "
               "y ahí es más cómodo porque se ve en vivo.",
     ),
     "resplandor": Valor(
@@ -398,7 +398,7 @@ ESQUEMA: dict[str, Valor] = {
         etiqueta="Compensar fondo",
         tipo=str, default="#000000", grupo="color", formato="color",
         ayuda="Color del video detrás de las barras para compensar el aclarado "
-              "de la fusión Trama de Drift. En #000000 está apagado y no modifica nada.",
+              "de la fusión Trama (Screen). En #000000 está apagado y no modifica nada.",
     ),
 
     # ---- Salida ------------------------------------------------------------

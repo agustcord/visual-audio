@@ -2,7 +2,7 @@
 setlocal
 
 :: ============================================================================
-:: Lanzador del Visualizador de Audio para Drift (MVP)
+:: Lanzador del Visualizador de Audio para editores de video (MVP)
 :: Anclaje al directorio del script y soporte estricto de rutas con espacios
 :: ============================================================================
 set "SCRIPT_DIR=%~dp0"
@@ -51,7 +51,7 @@ if errorlevel 1 (
     echo ERROR: No se encontro FFmpeg en el sistema [ffmpeg.exe no esta en el PATH].
     echo ============================================================================
     echo El visualizador utiliza FFmpeg para decodificar audio y codificar los
-    echo videos WebM transparentes o en negro para Drift.
+    echo videos WebM transparentes o en negro para editores de video.
     echo.
     echo Pasos para solucionarlo:
     echo  1. Descarga FFmpeg [ej. desde https://ffmpeg.org/download.html o gyan.dev]
