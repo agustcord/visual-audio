@@ -405,23 +405,23 @@ ESQUEMA: dict[str, Valor] = {
     "fps": Valor(
         etiqueta="Cuadros por segundo",
         tipo=int, default=30, minimo=1, maximo=120, grupo="salida",
-        ayuda="Los del proyecto de Drift. 30 es el estándar; 24 da archivos más "
+        ayuda="Los del proyecto de tu editor de video. 30 es el estándar; 24 da archivos más "
               "chicos y 60 un movimiento más fluido.",
     ),
     "fondo": Valor(
         etiqueta="Modo de fondo",
         tipo=str, default="negro", opciones=("transparente", "negro", "color"),
         grupo="salida",
-        ayuda="Cómo se recorta el fondo en Drift. 'negro' se compone con la fusión "
+        ayuda="Cómo se recorta el fondo en tu editor de video. 'negro' se compone con la fusión "
               "Trama; 'color' se recorta con el efecto Chroma Key; 'transparente' "
-              "usa canal alpha y NECESITA Drift 0.7.0 o superior — en 0.6.0 el alpha "
-              "se descarta y el clip sale como un rectángulo negro.",
+              "usa canal alpha y necesita un editor que lo soporte — cuidado porque el alpha "
+              "se puede descartar y el clip sale como un rectángulo negro si no es compatible.",
     ),
     "color_fondo": Valor(
         etiqueta="Color del fondo",
         tipo=str, default="#FF00FF", grupo="color", formato="color",
         ayuda="Para el modo Chroma Key. Conviene un tono lejano al del dibujo: el "
-              "Chroma Key de Drift recorta por tono, así que si están cerca se come "
+              "Chroma Key recorta por tono, así que si están cerca se come "
               "parte de la onda. Con dibujo cian, magenta es buena elección.",
     ),
     "calidad": Valor(
@@ -493,7 +493,7 @@ def _validar_coherencia(p: dict[str, Any]) -> None:
         if nombre in p and p[nombre] % 2 != 0:
             raise ErrorDeParametro(
                 f"'{nombre}' = {p[nombre]} tiene que ser par.\n"
-                f"  El formato de video que usa Drift submuestrea el color, y eso "
+                f"  El formato de video de salida submuestrea el color, y eso "
                 f"pide lados pares."
             )
 

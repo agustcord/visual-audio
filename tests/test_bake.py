@@ -2,7 +2,7 @@
 """Pruebas del subsistema de Pre-Bake, Proyección Matricial O(1) y Viewport LOD.
 
 Criterios de Aceptación:
-  CA-REARQ-1: Pre-Bake persistente en disco (.driftbake.npz), segunda carga <= 100 ms con 0 llamadas a FFmpeg.
+  CA-REARQ-1: Pre-Bake persistente en disco (.audiobake.npz), segunda carga <= 100 ms con 0 llamadas a FFmpeg.
   CA-REARQ-2: Proyección matricial S x M en memoria <= 15 ms.
   CA-REARQ-3: Recálculo de dinámica y curvas en <= 5 ms.
   CA-REARQ-4: Render Viewport LOD directo a resolución de visor <= 10 ms por cuadro.
@@ -72,7 +72,7 @@ def test_bake_unitario() -> None:
 
         # 1.3 Obtención de ruta bake
         ruta_bake = bake.obtener_ruta_bake(pista_tmp)
-        afirmar(ruta_bake.name == "audio_test.driftbake.npz", "nombre canónico <stem>.driftbake.npz", str(ruta_bake.name))
+        afirmar(ruta_bake.name == "audio_test.audiobake.npz", "nombre canónico <stem>.audiobake.npz", str(ruta_bake.name))
         afirmar(ruta_bake.parent == pista_tmp.parent, "ruta bake vive en el mismo directorio del audio")
 
         # 1.4 Guardado y carga de DatosBake sintético
@@ -90,7 +90,7 @@ def test_bake_unitario() -> None:
             version_formato=bake.VERSION_BAKE,
         )
         ruta_guardada = bake.guardar_bake(datos_sint, ruta_bake)
-        afirmar(ruta_guardada.exists(), "archivo .driftbake.npz generado en disco")
+        afirmar(ruta_guardada.exists(), "archivo .audiobake.npz generado en disco")
 
         datos_cargados = bake.cargar_bake(ruta_bake, hash_esperado=h3, fps_esperado=60)
         afirmar(datos_cargados is not None, "cargar_bake recupera DatosBake válidos")
@@ -110,7 +110,7 @@ def test_bake_unitario() -> None:
         afirmar(datos_rechazados_fps is None, "cargar_bake retorna None ante fps distinto")
 
         # 1.7 Manejo limpio ante archivo corrupto (sin excepción no controlada)
-        ruta_corrupta = tmp_path / "corrupto.driftbake.npz"
+        ruta_corrupta = tmp_path / "corrupto.audiobake.npz"
         ruta_corrupta.write_bytes(b"PK\x03\x04 corrupt data truncate")
         datos_corruptos = bake.cargar_bake(ruta_corrupta, hash_esperado=None)
         afirmar(datos_corruptos is None, "cargar_bake maneja limpiamente archivo npz corrupto")
@@ -134,7 +134,7 @@ def test_criterio_ca_rearq_1() -> None:
         # Primera carga: debe hornear y guardar en disco
         with patch("subprocess.run", wraps=subprocess.run) as mock_ffmpeg:
             datos_1 = analisis.hornear_audio(pista_tmp, fps=60)
-            afirmar(ruta_bake.exists(), "CA-REARQ-1: se crea <audio>.driftbake.npz en primera carga")
+            afirmar(ruta_bake.exists(), "CA-REARQ-1: se crea <audio>.audiobake.npz en primera carga")
             afirmar(mock_ffmpeg.call_count >= 1, "primera carga decodifica con FFmpeg")
             afirmar(datos_1.stft_potencia.shape[1] == 2049, "matriz causal contiene 2049 bins de frecuencia")
 

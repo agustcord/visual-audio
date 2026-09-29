@@ -1,4 +1,4 @@
-"""Persistencia y caché de Pre-Bake para análisis de audio (.driftbake.npz).
+"""Persistencia y caché de Pre-Bake para análisis de audio (.audiobake.npz).
 
 Almacena la matriz densa de STFT causal S (2049 bins float32) y la envolvente
 de onda cruda en disco de forma comprimida. Permite reabrir o reanalizar
@@ -81,21 +81,21 @@ def calcular_hash_audio(ruta: Path | str) -> str:
 
 
 def obtener_ruta_bake(ruta_audio: Path | str, fps: int = 60) -> Path:
-    """Retorna la ruta canónica del archivo .driftbake.npz junto al audio original.
+    """Retorna la ruta canónica del archivo .audiobake.npz junto al audio original.
 
-    Para fps estándar (60) usa: `<audio_stem>.driftbake.npz`.
-    Para otros fps incluye el sufijo: `<audio_stem>_{fps}fps.driftbake.npz`.
+    Para fps estándar (60) usa: `<audio_stem>.audiobake.npz`.
+    Para otros fps incluye el sufijo: `<audio_stem>_{fps}fps.audiobake.npz`.
     """
     p = Path(ruta_audio)
     if fps == 60:
-        nombre_bake = f"{p.stem}.driftbake.npz"
+        nombre_bake = f"{p.stem}.audiobake.npz"
     else:
-        nombre_bake = f"{p.stem}_{fps}fps.driftbake.npz"
+        nombre_bake = f"{p.stem}_{fps}fps.audiobake.npz"
     return p.parent / nombre_bake
 
 
 def guardar_bake(datos: DatosBake, ruta_bake: Path | str) -> Path:
-    """Guarda DatosBake en disco comprimido (.driftbake.npz) con escritura atómica."""
+    """Guarda DatosBake en disco comprimido (.audiobake.npz) con escritura atómica."""
     destino = Path(ruta_bake).resolve()
     destino.parent.mkdir(parents=True, exist_ok=True)
     temporal = destino.with_suffix(".tmp.npz")
@@ -135,7 +135,7 @@ def cargar_bake(
     fps_esperado: int | None = None,
     ruta_audio: Path | None = None,
 ) -> DatosBake | None:
-    """Carga un archivo .driftbake.npz en memoria RAM si es válido.
+    """Carga un archivo .audiobake.npz en memoria RAM si es válido.
 
     Retorna None sin levantar excepción si el archivo no existe, está corrupto,
     tiene una versión antigua o no coincide el hash o fps esperado.

@@ -813,13 +813,13 @@ def criterios_rearquitectura_bloque_2(tmp_dir: Path) -> None:
     root, app = crear_app_test(tmp_dir)
     try:
         with patch("tkinter.messagebox.showinfo"), patch("tkinter.messagebox.showwarning"), patch("tkinter.messagebox.showerror"):
-            # A) Primera carga: no existe bake en disco -> hornea en worker thread y crea .driftbake.npz
+            # A) Primera carga: no existe bake en disco -> hornea en worker thread y crea .audiobake.npz
             app.obtener_variable("fps").set(60)
-            afirmar(not ruta_bake.exists(), "archivo .driftbake.npz no existe antes de la primera carga")
+            afirmar(not ruta_bake.exists(), "archivo .audiobake.npz no existe antes de la primera carga")
             ok_1 = app.cargar_audio(pista_b2)
             root.update()
             afirmar(ok_1, "primera carga de audio completa con éxito")
-            afirmar(ruta_bake.is_file(), "CA-REARQ-1 (GUI): archivo .driftbake.npz creado en disco tras primera carga")
+            afirmar(ruta_bake.is_file(), "CA-REARQ-1 (GUI): archivo .audiobake.npz creado en disco tras primera carga")
             afirmar(app._datos_bake is not None, "app almacena DatosBake en memoria RAM")
             afirmar(app._datos_bake.stft_potencia.shape[1] == 2049, "DatosBake contiene matriz causal densa de 2049 bins")
 

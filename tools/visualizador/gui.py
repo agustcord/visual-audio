@@ -1051,9 +1051,9 @@ class VentanaVisualizador:
             self.cargar_audio(archivo)
 
     def cargar_audio(self, ruta: Path | str) -> bool:
-        """Carga y analiza una pista de audio mediante Pre-Bake persistente (.driftbake.npz).
+        """Carga y analiza una pista de audio mediante Pre-Bake persistente (.audiobake.npz).
 
-        Si el archivo .driftbake.npz existe y es válido, realiza carga instantánea (< 100 ms, 0 FFmpeg).
+        Si el archivo .audiobake.npz existe y es válido, realiza carga instantánea (< 100 ms, 0 FFmpeg).
         Si no existe, hornea asíncronamente en worker thread con feedback claro en la interfaz
         ('Horneando análisis de audio...') sin bloquear el hilo principal de eventos de Tkinter.
         """
@@ -1949,7 +1949,7 @@ class VentanaVisualizador:
         except tk.TclError:
             pass
 
-        lbl_tit = ttk.Label(dlg, text="Exportando video para Drift...", font=TOKENS_DISENO["fuente_titular"])
+        lbl_tit = ttk.Label(dlg, text="Exportando video...", font=TOKENS_DISENO["fuente_titular"])
         lbl_tit.pack(pady=(16, 6))
 
         lbl_estado = ttk.Label(dlg, text=f"0%  (0 / {total_cuadros} cuadros)")
