@@ -2,21 +2,35 @@
 
 **Documento vivo.** Cada agente lo actualiza al cerrar su turno. Si contradice a otro documento, gana la bitácora `.memory/log.md` — pero entonces alguien tiene que arreglar este archivo.
 
-**Última actualización:** 2026-09-27, Consolidación de Selector de Color de Barras y Ondas y Suite de 407 Tests (Turno T41), agente Ani Programadora.
+**Última actualización:** 2026-09-29, Plan de Publicación en GitHub bajo Licencia No Comercial (Turno T46), agente Ani Arquitecta.
 
 ---
 
-## 🚦 Estado: etapas 1 a 6 cerradas. Etapa 7 completada y MVP formalmente CERRADO (v0.1.0-mvp). Re-arquitectura de Rendimiento: PASS ROTUNDO. Corrección de Selector de Color en GUI: CERTIFICADA CON PASS DE QA (Ani Mal Humor) Y CONSOLIDADA. Suite integral al 100% en verde (407 comprobaciones automáticas, 0 fallas, exit code 0).
-### 🎯 Ciclo Core Activo: Consolidación Final y Cierre de Sesión completados tras dictamen PASS de QA en T41.
+## 🚦 Estado: etapas 1 a 6 cerradas. Etapa 7 completada y MVP formalmente CERRADO (v0.1.0-mvp). Identidad Visual "Visual Audio" y Salto Visual Dark Zinc COMPLETADOS Y CERTIFICADOS CON PASS POR QA (Turnos T44 y T45, 462 comprobaciones en verde).
+### 🎯 Ciclo Core Activo: Fase 1 (Triage & Plan) de Publicación en GitHub bajo Licencia No Comercial COMPLETADA (Turno T46). En espera del Gate de Aprobación del Capitán.
 
-### ⚖️ Decisión y Pendiente Estratégico: Publicación en GitHub bajo Licencia No Comercial
-- **Instrucción textual del Capitán:** *"Ok, entonces lo publiqueremos en github pero solo para uso no comercial, es decir nadie puede vender o integrarlo en un producto comercial. si puede usarlo de forma gratuita. Declara eso un pendiente"*.
-- **Catalogación:** Pendiente estratégico para la fase de distribución pública. Se publicará bajo licencia restrictiva no comercial (ej. PolyForm Noncommercial 1.0.0 o CC BY-NC 4.0), habilitando el uso libre y 100% gratuito para personas creadoras, músicos y editores de video, pero prohibiendo expresamente su venta o integración en software privativo/comercial.
+### 📦 Plan Rector de Publicación en GitHub bajo Licencia No Comercial Entregado (T46)
+- **Documento rector:** `implementation_plan.md` y handoff `T46_plan_publicacion_github_licencia_nocomercial_20260929.md`.
+- **Marco legal:** Adopción formal de **PolyForm Noncommercial License 1.0.0** (`LICENSE`) con preámbulo *Creator-Friendly Clarification* (uso 100% libre y gratuito para músicos y creadores de video en redes; prohibición taxativa de venta del software o integración como complemento de productos comerciales).
+- **Vitrina pública:** Rediseño completo de `README.md` público (encabezado con logo y badges, propuesta de valor, galería de capturas de pantalla, guía de instalación paso a paso en Windows con Python/FFmpeg/pip, comandos de arranque GUI y CLI, y flujo de composición en Drift en modo Trama).
+- **Empaquetado y distribución:** Formalización de `requirements.txt` (`numpy>=1.24.0`, `pillow>=10.0.0`, `scipy>=1.10.0`) y `pyproject.toml` (PEP 517/621).
+- **Galería oficial de screenshots:** Estrategia para generar y almacenar en `assets/screenshots/` capturas en alta fidelidad de la GUI con los 3 estilos (`barras`, `onda`, `espejadas`) y tema Dark Zinc.
+- **Higiene:** Cero rutas locales absolutas y `.gitignore` optimizado para GitHub.
+- **Estado de código:** Cero líneas de producto modificadas en este turno (respeto estricto a la frontera de Fase 1).
 
-### 🎨 Corrección Implementada: Selector de Color de Barras y Ondas en GUI
-- **Solución implementada:** En `tools/visualizador/gui.py:535-555`, `_elegir_color` desempaca con seguridad `resultado[1]` de `colorchooser.askcolor(color=actual, parent=self.root, title=f"Elegir {nombre}")`, descarta limpiamente cancelaciones (`None`), actualiza la muestra visual con contraste dinámico (`_actualizar_muestra_color`) y notifica reactividad con debounce cosmético de 30 ms vía `_al_modificar_parametro(nombre, es_cosmetico=True)`.
-- **Pruebas añadidas:** Función `probar_selector_color_barras_y_ondas` en `tests/test_gui.py` con 19 comprobaciones automáticas pasando al 100% (CA-COLOR-1 a CA-COLOR-5).
-- **Dictamen Formal de QA (Ani Mal Humor):** **PASS** certificado tras auditar en disco la resolución de los criterios CA-COLOR-1 a CA-COLOR-5 y certificar la suite integral de 407 comprobaciones en verde.
+### 🎨 Modernización de UI y Salto Visual "Visual Audio" Implementados y Certificados (T44 y T45)
+- **Implementación (T44 - Ani Frontend):** `tools/visualizador/gui.py` con tokens `TOKENS_DISENO` (Dark Zinc 950/900/800), conmutación a tema ttk `'clam'`, iconos oficiales (`visual_audio.ico` e `visual_audio_512.png`), título formal "Visual Audio", transporte DAW (Play cian, Consolas monoespaciada) y frame swap $O(1)$ en canvas.
+- **Auditoría Formal de QA (T45 - Ani Mal Humor):** **PASS** rotundo certificado sobre los criterios CA-IDENT-1 a CA-IDENT-6 (contraste WCAG AAA/AA verificado, Viewport LOD en 8.65 ms, suite completa de 462 comprobaciones automáticas en verde). Handoff: `.memory/handoffs/T45_qa_auditoria_identidad_visual_audio_20260928.md`.
+
+### 🎨 Identidad Gráfica y Assets de Marca Entregados: "Visual Audio" (T42)
+- **Directiva de marca:** Nombre oficial "Visual Audio". 100% código paramétrico (cero IA).
+- **SVG maestro vectorial:** `assets/logo/visual_audio_logo.svg` (512x512, squircle zinc-900/950, barras estéreo simétricas y onda fluida en cian `#06b6d4` a violeta `#8b5cf6`).
+- **Animación interactiva HyperFrames:** `assets/logo/preview_animacion.html` (composición determinista GSAP con timeline de 6.00s, scrubber en tiempo real, velocidad 0.5x..2.0x, bucle y navegación por teclado).
+- **Iconos compilados:** `assets/logo/visual_audio_512.png` y `assets/logo/visual_audio.ico` (multi-resolución Windows: 16x16 a 256x256) generados con `assets/logo/compilar_iconos.py`.
+
+### ⚖️ Decisión y Mandato del Capitán: Publicación en GitHub bajo Licencia No Comercial
+- **Instrucción textual del Capitán:** *"quedo muy bien. arme todo para publicar en github de manera publica, descripcion, instalación, capturas. licencia libre de uso, siempre y cuiando no se venda el software o se use como complemento de un producto comercial"*.
+- **Resolución de arquitectura (T46):** Planificada la publicación con PolyForm Noncommercial 1.0.0, vitrina pública de primer nivel y distribución limpia sin ataduras a rutas privadas.
 
 ---
 
@@ -44,16 +58,26 @@
 10. **Fase 1 Triage & Plan (T40, Ani Arquitecta):** Registro formal del pendiente de publicación bajo licencia no comercial en GitHub, aislamiento de causa raíz del bug de selección de color en `gui.py:537`, redacción de `implementation_plan.md` y handoff `T40_triage_publicacion_nocomercial_y_fix_color_barras_20260927.md`.
 11. **Fase 2 Ejecución Técnica (T41, Ani Frontend):** Corrección de `_elegir_color` en `gui.py`, reactividad cosmética de 30 ms con `_al_modificar_parametro`, adición de pruebas `probar_selector_color_barras_y_ondas` en `test_gui.py`, y certificación de suite total con 407 checks en verde (exit code 0). Handoff: `T41_correccion_selector_color_barras_20260927.md`.
 12. **Fase 3 QA & Consolidación Final (T41, Ani Mal Humor / Ani Programadora):** Auditoría en disco de los criterios CA-COLOR-1 a CA-COLOR-5 con dictamen PASS emitido por Ani Mal Humor, formalización en `RETOMAR.md` y consolidación atómica en Git.
+13. **Fase 2 Ejecución Técnica (T42, Ani Frontend):** Creación de la identidad visual de marca "Visual Audio": logo SVG paramétrico (`visual_audio_logo.svg`), animación HyperFrames GSAP interactiva (`preview_animacion.html`) e iconos compilados (`visual_audio.ico` y `visual_audio_512.png`). Suite integral con 415 comprobaciones al 100% en verde. Handoff: `T42_diseno_logo_vectorial_animacion_visual_audio_20260927.md`.
+14. **Fase 1 Triage & Plan (T43, Ani Arquitecta):** Plan estructurado de modernización de UI y salto visual en `implementation_plan.md`: tokens Dark Zinc 950/900/800 + Cian/Violeta, tema `'clam'` en `ttk.Style` para sobreescribir uxtheme de Windows, vinculación de icono y título formal "Visual Audio", transporte DAW con tipografía monoespaciada Consolas y presupuesto de 60 fps intacto. Handoff: `T43_plan_redisenio_identidad_visual_audio_20260927.md`.
+15. **Fase 2 Ejecución Técnica (T44, Ani Frontend):** Implementación de tokens de diseño `TOKENS_DISENO`, estilos ttk 'clam', iconos oficiales, styling DAW y frame swap $O(1)$ en `gui.py` y `test_gui.py`. 462 comprobaciones en verde. Handoff: `T44_ejecucion_frontend_salto_visual_audio_20260928.md`.
+16. **Fase 3 QA & Auditoría de Cumplimiento (T45, Ani Mal Humor):** Certificación formal de veredicto PASS sobre CA-IDENT-1 a CA-IDENT-6 (contraste WCAG AAA/AA, Viewport LOD 8.65 ms, 462/462 checks en verde). Handoff: `T45_qa_auditoria_identidad_visual_audio_20260928.md`.
+17. **Fase 1 Triage & Plan de Publicación en GitHub (T46, Ani Arquitecta):** Plan rector de publicación en GitHub bajo PolyForm Noncommercial 1.0.0, vitrina pública de `README.md`, empaquetado (`requirements.txt`, `pyproject.toml`) y capturas de pantalla de la GUI oficial. Handoff: `T46_plan_publicacion_github_licencia_nocomercial_20260929.md`.
 
 ---
 
 ## Lo primero que tiene que hacer el próximo agente
 
-El ciclo de corrección del selector de color de barras y ondas y el registro del pendiente estratégico de publicación no comercial han concluido exitosamente con dictamen **PASS** de QA y consolidación atómica en Git (407 comprobaciones automáticas al 100% en verde, exit code 0, working tree limpio).
+Nos encontramos en el **🚦 GATE DEL CAPITÁN** del ciclo de trabajo del Escuadrón Ani.
 
-El próximo agente debe:
-1. Atender la siguiente prioridad o directiva funcional que indique el Capitán (ej. abordar la redacción de `LICENSE.md` / `README.md` bajo licencia no comercial cuando se prepare la distribución pública en GitHub, o nuevas características en la etapa 7 de validación / post-MVP).
-2. Mantener la suite integral de 407 comprobaciones en verde ante cualquier nuevo cambio.
+1. **Ani Recepcionista:** Presentar el plan estructurado `implementation_plan.md` al Capitán y aguardar su aprobación explícita ("procede" o "apruebo"). **Nadie ejecuta en producción ni publica hasta su aprobación formal.**
+2. **Con el plan aprobado por el Capitán (Fase 2):** Ani Recepcionista derivará la ejecución técnica:
+   - **Ani Escritora / Ani Frontend:** Redacción de `LICENSE` (PolyForm Noncommercial 1.0.0 + preámbulo para creadores) y el nuevo `README.md` público.
+   - **Ani Programadora:** Generación de `requirements.txt` y `pyproject.toml`.
+   - **Ani Frontend:** Generación de capturas de pantalla de la GUI oficial en `assets/screenshots/`.
+   - **Ani DevOps:** Verificación de `.gitignore` para GitHub y ejecución limpia de la suite.
+3. **Fase 3 (QA):** Ani Recepcionista derivará a **Ani Mal Humor** para auditar en disco los criterios falsables CA-PUB-1 a CA-PUB-7.
+4. Mantener la suite consolidada de 462 comprobaciones al 100% en verde.
 
 
 ---
@@ -61,16 +85,22 @@ El próximo agente debe:
 ## Probarlo ahora mismo
 
 ```powershell
-# 1. Abrir la interfaz gráfica interactiva (doble clic o desde terminal):
+# 1. Abrir la animación interactiva HyperFrames del logo en el navegador:
+Start-Process assets\logo\preview_animacion.html
+
+# 2. Recompilar los assets de icono (visual_audio.ico y visual_audio_512.png):
+python assets\logo\compilar_iconos.py
+
+# 3. Abrir la interfaz gráfica interactiva (doble clic o desde terminal):
 .\visualizador.bat
 
-# 2. Consultar estilos, presets y parámetros por CLI:
+# 4. Consultar estilos, presets y parámetros por CLI:
 .\visualizador.bat --listar
 
-# 3. Exportar un video directamente por CLI:
+# 5. Exportar un video directamente por CLI:
 .\visualizador.bat tests\fixtures\pista_espectro.wav -o build\prueba.webm --preset barras_neon
 
-# 4. Correr la suite completa de pruebas consolidadas (407 comprobaciones en verde):
+# 6. Correr la suite completa de pruebas consolidadas (462 comprobaciones en verde):
 python -m tests.test_bake
 python -m tests.test_analisis
 python -m tests.test_render --export

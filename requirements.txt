@@ -1,0 +1,5 @@
+# Dependencias de Visual Audio
+# Instalar con: pip install -r requirements.txt
+numpy>=1.24.0
+pillow>=10.0.0
+scipy>=1.10.0

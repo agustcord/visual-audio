@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "visual-audio"
+version = "0.1.0"
+description = "Visualizador de audio reactivo de alto rendimiento para Drift y suites de video."
+readme = "README.md"
+license = "PolyForm-Noncommercial-1.0.0"
+requires-python = ">=3.10"
+authors = [
+    { name = "Jonatan Córdoba" },
+]
+keywords = ["audio", "visualizer", "fft", "drift", "video", "overlay"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "Topic :: Multimedia :: Sound/Audio :: Analysis",
+    "Topic :: Multimedia :: Video",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: Microsoft :: Windows",
+]
+dependencies = [
+    "numpy>=1.24.0",
+    "pillow>=10.0.0",
+    "scipy>=1.10.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/JonatanCordoba/visual-audio"
+Issues = "https://github.com/JonatanCordoba/visual-audio/issues"
+
+[project.scripts]
+visual-audio = "visualizador.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["tools"]

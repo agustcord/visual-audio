@@ -1,0 +1,953 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Visual Audio — Logo Motion Preview (HyperFrames)</title>
+  
+  <!-- GSAP CDN for HyperFrames runtime -->
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+
+  <style>
+    :root {
+      --bg-canvas: #09090b;
+      --bg-surface: #18181b;
+      --bg-elevated: #27272a;
+      --border-subtle: #3f3f46;
+      --border-active: #06b6d4;
+      --text-main: #f4f4f5;
+      --text-muted: #a1a1aa;
+      --accent-cyan: #06b6d4;
+      --accent-cyan-light: #22d3ee;
+      --accent-violet: #8b5cf6;
+      --accent-violet-light: #c084fc;
+      --focus-ring: #38bdf8;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--bg-canvas);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 24px 16px;
+      overflow-x: hidden;
+    }
+
+    /* Header Bar */
+    header {
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-title h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, var(--accent-cyan-light), var(--accent-violet-light));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-tag {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      background: rgba(6, 182, 212, 0.15);
+      border: 1px solid rgba(6, 182, 212, 0.4);
+      color: var(--accent-cyan-light);
+      font-weight: 600;
+    }
+
+    .status-badge {
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-muted);
+      background: var(--bg-surface);
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    /* Main Preview Container */
+    main {
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+    }
+
+    /* Stage / Viewport */
+    .viewport-card {
+      position: relative;
+      width: 100%;
+      max-width: 540px;
+      aspect-ratio: 1 / 1;
+      background: radial-gradient(circle at 50% 50%, rgba(39, 39, 42, 0.5) 0%, rgba(9, 9, 11, 0.9) 100%);
+      border: 1px solid var(--border-subtle);
+      border-radius: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.8),
+                  0 0 50px -20px rgba(6, 182, 212, 0.15);
+      overflow: hidden;
+      transition: border-color 0.2s ease;
+    }
+
+    .viewport-card:hover {
+      border-color: rgba(6, 182, 212, 0.5);
+    }
+
+    /* SVG Master inside Viewport */
+    .logo-container {
+      width: 82%;
+      height: 82%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transform-origin: center center;
+    }
+
+    .logo-svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+
+    /* Controls Panel */
+    .controls-panel {
+      width: 100%;
+      max-width: 540px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Scrubber / Progress Slider */
+    .scrubber-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .scrubber-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .scrubber-track {
+      position: relative;
+      width: 100%;
+      height: 8px;
+      border-radius: 4px;
+      background: var(--bg-elevated);
+      cursor: pointer;
+    }
+
+    .scrubber-input {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 8px;
+      border-radius: 4px;
+      background: transparent;
+      outline: none;
+      margin: 0;
+      cursor: pointer;
+    }
+
+    .scrubber-input::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 0 10px var(--accent-cyan);
+      border: 2px solid var(--accent-cyan);
+      cursor: grab;
+      transition: transform 0.1s ease;
+    }
+
+    .scrubber-input:active::-webkit-slider-thumb {
+      cursor: grabbing;
+      transform: scale(1.25);
+    }
+
+    .scrubber-input:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 4px;
+    }
+
+    /* Buttons Row */
+    .button-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn-group-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn {
+      min-width: 44px;
+      min-height: 44px;
+      padding: 0 16px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      color: var(--text-main);
+      font-size: 13px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s ease;
+    }
+
+    .btn:hover {
+      background: #3f3f46;
+      border-color: #52525b;
+      color: #ffffff;
+    }
+
+    .btn:active {
+      transform: scale(0.96);
+    }
+
+    .btn:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-cyan), #0284c7);
+      border: 1px solid var(--accent-cyan-light);
+      color: #ffffff;
+      font-weight: 600;
+      padding: 0 20px;
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, var(--accent-cyan-light), #0369a1);
+      box-shadow: 0 0 16px rgba(6, 182, 212, 0.4);
+    }
+
+    .btn.active {
+      border-color: var(--accent-cyan-light);
+      background: rgba(6, 182, 212, 0.15);
+      color: var(--accent-cyan-light);
+    }
+
+    /* Speed Selector */
+    .select-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .select-custom {
+      min-height: 44px;
+      padding: 0 32px 0 14px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      color: var(--text-main);
+      font-size: 13px;
+      font-weight: 500;
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+    }
+
+    .select-custom:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    .select-arrow {
+      position: absolute;
+      right: 12px;
+      pointer-events: none;
+      color: var(--text-muted);
+      font-size: 10px;
+    }
+
+    /* Info / Specs Grid */
+    .specs-grid {
+      width: 100%;
+      max-width: 540px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .spec-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .spec-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+
+    .spec-val {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* HyperFrames composition contract attributes */
+    .stage {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Accessible reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      .logo-container, .va-bar, .va-peak, .va-wave-primary {
+        transition: none !important;
+        animation: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand-title">
+      <h1>Visual Audio</h1>
+      <span class="brand-tag">Motion HyperFrames</span>
+    </div>
+    <div class="status-badge" id="time-display">00.00s / 06.00s (60 FPS)</div>
+  </header>
+
+  <main>
+    <!-- HyperFrames Root Contract -->
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="6.0"
+      data-width="512"
+      data-height="512"
+      class="viewport-card"
+    >
+      <div
+        class="stage clip"
+        data-start="0"
+        data-duration="6.0"
+        data-track-index="1"
+        id="visual-audio-stage"
+      >
+        <div class="logo-container" id="logo-wrapper">
+          <!-- Master Vector Logo Embedded Inline for Real-Time Parametric Animation -->
+          <svg
+            class="logo-svg"
+            id="va-svg"
+            viewBox="0 0 512 512"
+            role="img"
+            aria-label="Visual Audio Logo Motion Preview"
+          >
+            <defs>
+              <linearGradient id="va-bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#18181b" />
+                <stop offset="100%" stop-color="#09090b" />
+              </linearGradient>
+
+              <linearGradient id="va-border-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#3f3f46" stop-opacity="0.85" />
+                <stop offset="40%" stop-color="#27272a" stop-opacity="0.30" />
+                <stop offset="100%" stop-color="#52525b" stop-opacity="0.50" />
+              </linearGradient>
+
+              <linearGradient id="va-freq-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#06b6d4" />
+                <stop offset="35%" stop-color="#22d3ee" />
+                <stop offset="65%" stop-color="#6366f1" />
+                <stop offset="100%" stop-color="#8b5cf6" />
+              </linearGradient>
+
+              <linearGradient id="va-peak-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#67e8f9" />
+                <stop offset="50%" stop-color="#a5b4fc" />
+                <stop offset="100%" stop-color="#c084fc" />
+              </linearGradient>
+
+              <linearGradient id="va-wave-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#22d3ee" />
+                <stop offset="50%" stop-color="#818cf8" />
+                <stop offset="100%" stop-color="#c084fc" />
+              </linearGradient>
+
+              <radialGradient id="va-ambient-glow" cx="50%" cy="58%" r="46%">
+                <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.25" />
+                <stop offset="45%" stop-color="#8b5cf6" stop-opacity="0.16" />
+                <stop offset="100%" stop-color="#18181b" stop-opacity="0" />
+              </radialGradient>
+
+              <filter id="va-neon-glow" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="5" result="blur1" />
+                <feGaussianBlur stdDeviation="12" result="blur2" />
+                <feMerge>
+                  <feMergeNode in="blur2" />
+                  <feMergeNode in="blur1" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+
+              <filter id="va-bar-glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="3" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" opacity="0.6" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+
+            <!-- Base Squircle -->
+            <rect
+              id="squircle-base"
+              x="32" y="32" width="448" height="448" rx="104" ry="104"
+              fill="url(#va-bg-grad)" stroke="url(#va-border-grad)" stroke-width="2.5"
+            />
+
+            <!-- Ambient Atmosphere -->
+            <circle id="ambient-light" cx="256" cy="285" r="175" fill="url(#va-ambient-glow)" />
+
+            <!-- Equalizer Bars (Group) -->
+            <g id="equalizer-bars" filter="url(#va-bar-glow)">
+              <rect id="bar-0" class="va-bar" x="105.5" y="105" width="13" height="110" rx="6.5" fill="url(#va-freq-grad)" />
+              <rect id="bar-1" class="va-bar" x="129.5" y="132" width="13" height="130" rx="6.5" fill="url(#va-freq-grad)" />
+              <rect id="bar-2" class="va-bar" x="153.5" y="186.5" width="13" height="95" rx="6.5" fill="url(#va-freq-grad)" />
+              <rect id="bar-3" class="va-bar" x="177.5" y="211" width="13" height="120" rx="6.5" fill="url(#va-freq-grad)" />
+              <rect id="bar-4" class="va-bar" x="201.5" y="268" width="13" height="80" rx="6.5" fill="url(#va-freq-grad)" />
+              <rect id="bar-5" class="va-bar" x="225.5" y="315" width="13" height="60" rx="6.5" fill="url(#va-freq-grad)" />
+              <rect id="bar-6" class="va-bar" x="249.5" y="366" width="13" height="44" rx="6.5" fill="url(#va-freq-grad)" />
+              <rect id="bar-7" class="va-bar" x="273.5" y="315" width="13" height="60" rx="6.5" fill="url(#va-freq-grad)" />
+              <rect id="bar-8" class="va-bar" x="297.5" y="268" width="13" height="80" rx="6.5" fill="url(#va-freq-grad)" />
+              <rect id="bar-9" class="va-bar" x="321.5" y="211" width="13" height="120" rx="6.5" fill="url(#va-freq-grad)" />
+              <rect id="bar-10" class="va-bar" x="345.5" y="186.5" width="13" height="95" rx="6.5" fill="url(#va-freq-grad)" />
+              <rect id="bar-11" class="va-bar" x="369.5" y="132" width="13" height="130" rx="6.5" fill="url(#va-freq-grad)" />
+              <rect id="bar-12" class="va-bar" x="393.5" y="105" width="13" height="110" rx="6.5" fill="url(#va-freq-grad)" />
+            </g>
+
+            <!-- Peak Indicators -->
+            <g id="peak-caps">
+              <rect id="peak-0" class="va-peak" x="105.5" y="93" width="13" height="3.5" rx="1.75" fill="url(#va-peak-grad)" opacity="0.95" />
+              <rect id="peak-1" class="va-peak" x="129.5" y="120" width="13" height="3.5" rx="1.75" fill="url(#va-peak-grad)" opacity="0.95" />
+              <rect id="peak-2" class="va-peak" x="153.5" y="174.5" width="13" height="3.5" rx="1.75" fill="url(#va-peak-grad)" opacity="0.95" />
+              <rect id="peak-3" class="va-peak" x="177.5" y="199" width="13" height="3.5" rx="1.75" fill="url(#va-peak-grad)" opacity="0.95" />
+              <rect id="peak-4" class="va-peak" x="201.5" y="256" width="13" height="3.5" rx="1.75" fill="url(#va-peak-grad)" opacity="0.95" />
+              <rect id="peak-5" class="va-peak" x="225.5" y="303" width="13" height="3.5" rx="1.75" fill="url(#va-peak-grad)" opacity="0.95" />
+              <circle id="peak-6" class="va-peak" cx="256" cy="355" r="3.2" fill="url(#va-peak-grad)" opacity="0.95" />
+              <rect id="peak-7" class="va-peak" x="273.5" y="303" width="13" height="3.5" rx="1.75" fill="url(#va-peak-grad)" opacity="0.95" />
+              <rect id="peak-8" class="va-peak" x="297.5" y="256" width="13" height="3.5" rx="1.75" fill="url(#va-peak-grad)" opacity="0.95" />
+              <rect id="peak-9" class="va-peak" x="321.5" y="199" width="13" height="3.5" rx="1.75" fill="url(#va-peak-grad)" opacity="0.95" />
+              <rect id="peak-10" class="va-peak" x="345.5" y="174.5" width="13" height="3.5" rx="1.75" fill="url(#va-peak-grad)" opacity="0.95" />
+              <rect id="peak-11" class="va-peak" x="369.5" y="120" width="13" height="3.5" rx="1.75" fill="url(#va-peak-grad)" opacity="0.95" />
+              <rect id="peak-12" class="va-peak" x="393.5" y="93" width="13" height="3.5" rx="1.75" fill="url(#va-peak-grad)" opacity="0.95" />
+            </g>
+
+            <!-- Secondary Faint Wave -->
+            <path
+              id="wave-secondary"
+              d="M 102,145 C 112,185 140,170 155,235 C 170,300 208,295 230,365 C 242,400 250,420 256,420 C 262,420 270,400 282,365 C 304,295 342,300 357,235 C 372,170 400,185 410,145"
+              fill="none" stroke="url(#va-wave-grad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+              opacity="0.45"
+            />
+
+            <!-- Primary Glowing Wave -->
+            <path
+              id="wave-primary"
+              d="M 98,125 C 105,175 145,155 160,225 C 175,295 215,285 235,360 C 245,395 250,422 256,422 C 262,422 267,395 277,360 C 297,285 337,295 352,225 C 367,155 407,175 414,125"
+              fill="none" stroke="url(#va-wave-grad)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"
+              filter="url(#va-neon-glow)"
+            />
+
+            <!-- Apex Glowing Node -->
+            <g id="apex-node">
+              <circle id="apex-pulse" cx="256" cy="422" r="16" fill="#06b6d4" opacity="0.3" />
+              <circle id="apex-outer" cx="256" cy="422" r="9" fill="#22d3ee" filter="url(#va-neon-glow)" />
+              <circle id="apex-core" cx="256" cy="422" r="4.5" fill="#ffffff" />
+            </g>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Interactive Motion Controls Panel -->
+    <div class="controls-panel">
+      <!-- Scrubber -->
+      <div class="scrubber-group">
+        <div class="scrubber-header">
+          <span id="time-current">0.00s</span>
+          <span>Timeline Scrub</span>
+          <span id="time-total">6.00s</span>
+        </div>
+        <div class="scrubber-track">
+          <input
+            type="range"
+            id="scrubber"
+            class="scrubber-input"
+            min="0"
+            max="6.0"
+            step="0.01"
+            value="0"
+            aria-label="Seek timeline position"
+          />
+        </div>
+      </div>
+
+      <!-- Button Row -->
+      <div class="button-row">
+        <div class="btn-group-left">
+          <button id="btn-play-pause" class="btn btn-primary" aria-label="Reproducir o pausar animación">
+            <span id="play-icon">▶</span>
+            <span id="play-text">Reproducir</span>
+          </button>
+          <button id="btn-restart" class="btn" aria-label="Reiniciar animación al principio">
+            <span>↺</span>
+            <span>Reiniciar</span>
+          </button>
+          <button id="btn-loop" class="btn active" aria-label="Alternar reproducción en bucle">
+            <span>⟳</span>
+            <span>Bucle: ON</span>
+          </button>
+        </div>
+
+        <div class="select-wrap">
+          <select id="speed-select" class="select-custom" aria-label="Velocidad de reproducción">
+            <option value="0.5">0.5x</option>
+            <option value="1.0" selected>1.0x</option>
+            <option value="1.5">1.5x</option>
+            <option value="2.0">2.0x</option>
+          </select>
+          <span class="select-arrow">▼</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Technical Specs Grid -->
+    <div class="specs-grid">
+      <div class="spec-card">
+        <span class="spec-label">Motor Motion</span>
+        <span class="spec-val">HyperFrames GSAP</span>
+      </div>
+      <div class="spec-card">
+        <span class="spec-label">Duración Ciclo</span>
+        <span class="spec-val">6.00s (Seamless)</span>
+      </div>
+      <div class="spec-card">
+        <span class="spec-label">Frecuencias</span>
+        <span class="spec-val">13 Bandas Estéreo</span>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    /* =========================================================================
+       HyperFrames Animation Runtime Engine for "Visual Audio"
+       Contract: Single paused timeline registered on window.__timelines["main"]
+       Seek-safe, zero Math.random() / Date.now() / performance.now()
+       ========================================================================= */
+
+    const DURATION = 6.0;
+    window.__timelines = window.__timelines || {};
+
+    const tl = gsap.timeline({
+      paused: true,
+      onUpdate: updateScrubberUI,
+      onComplete: handleTimelineComplete
+    });
+
+    window.__timelines["main"] = tl;
+
+    // Bar reference metadata: baseline Y and natural height
+    // In our SVG:
+    // Left:
+    // 0: y=105, h=110 -> base_y = 215
+    // 1: y=132, h=130 -> base_y = 262
+    // 2: y=186.5, h=95 -> base_y = 281.5
+    // 3: y=211, h=120 -> base_y = 331
+    // 4: y=268, h=80 -> base_y = 348
+    // 5: y=315, h=60 -> base_y = 375
+    // 6: y=366, h=44 -> base_y = 410
+    // Right (mirrored):
+    // 7: y=315, h=60 -> base_y = 375
+    // 8: y=268, h=80 -> base_y = 348
+    // 9: y=211, h=120 -> base_y = 331
+    // 10: y=186.5, h=95 -> base_y = 281.5
+    // 11: y=132, h=130 -> base_y = 262
+    // 12: y=105, h=110 -> base_y = 215
+
+    const BAR_CONFIG = [
+      { id: "#bar-0", peak: "#peak-0", baseY: 215, baseH: 110 },
+      { id: "#bar-1", peak: "#peak-1", baseY: 262, baseH: 130 },
+      { id: "#bar-2", peak: "#peak-2", baseY: 281.5, baseH: 95 },
+      { id: "#bar-3", peak: "#peak-3", baseY: 331, baseH: 120 },
+      { id: "#bar-4", peak: "#peak-4", baseY: 348, baseH: 80 },
+      { id: "#bar-5", peak: "#peak-5", baseY: 375, baseH: 60 },
+      { id: "#bar-6", peak: "#peak-6", baseY: 410, baseH: 44, isCenter: true },
+      { id: "#bar-7", peak: "#peak-7", baseY: 375, baseH: 60 },
+      { id: "#bar-8", peak: "#peak-8", baseY: 348, baseH: 80 },
+      { id: "#bar-9", peak: "#peak-9", baseY: 331, baseH: 120 },
+      { id: "#bar-10", peak: "#peak-10", baseY: 281.5, baseH: 95 },
+      { id: "#bar-11", peak: "#peak-11", baseY: 262, baseH: 130 },
+      { id: "#bar-12", peak: "#peak-12", baseY: 215, baseH: 110 }
+    ];
+
+    // Build SVG transform origins for bars: each scales from its bottom baseline
+    BAR_CONFIG.forEach(b => {
+      const el = document.querySelector(b.id);
+      if (el) {
+        el.style.transformOrigin = "bottom center";
+        el.style.transformBox = "fill-box";
+      }
+    });
+
+    /* =========================================================================
+       CHOREOGRAPHY (6.0s Seamless Loop)
+       ========================================================================= */
+
+    // 1. Equalizer Rhythm: 4 beats of 1.5s each (total 6.0s)
+    // Audio pattern multipliers at keyframes:
+    // [t=0.0 (1.0), t=0.35 (1.35), t=0.75 (0.75), t=1.1 (1.20), t=1.5 (1.0)]
+    const BEAT_LEN = 1.5;
+
+    BAR_CONFIG.forEach((b, idx) => {
+      // Frequency phase offset: center bars peak slightly after wings (propagation delay)
+      const distFromCenter = Math.abs(idx - 6);
+      const phaseOffset = (6 - distFromCenter) * 0.04;
+
+      // 4 repeating rhythmic bars within the 6.0s duration
+      for (let beat = 0; beat < 4; beat++) {
+        const t0 = beat * BEAT_LEN;
+        
+        // Multipliers vary by frequency band:
+        // Outer bars = sub/bass + treble (punchy)
+        // Mid bars = vocal/synths (sustained)
+        // Center bar = anchor (steady pulse)
+        let peakScale = 1.25 + 0.15 * Math.cos(distFromCenter * 0.8);
+        let dipScale = 0.65 + 0.10 * Math.sin(distFromCenter * 0.5);
+
+        if (beat === 1) { // Beat 2: accent on mids
+          if (distFromCenter >= 2 && distFromCenter <= 4) peakScale += 0.20;
+        } else if (beat === 2) { // Beat 3: massive bass drop
+          if (distFromCenter >= 4) peakScale += 0.25;
+        }
+
+        // Tween up to peak
+        tl.to(b.id, {
+          scaleY: peakScale,
+          duration: 0.32,
+          ease: "power2.out"
+        }, t0 + phaseOffset);
+
+        // Tween down to dip
+        tl.to(b.id, {
+          scaleY: dipScale,
+          duration: 0.48,
+          ease: "power1.inOut"
+        }, t0 + phaseOffset + 0.32);
+
+        // Secondary bounce
+        tl.to(b.id, {
+          scaleY: 1.0 + (peakScale - 1.0) * 0.4,
+          duration: 0.35,
+          ease: "sine.out"
+        }, t0 + phaseOffset + 0.80);
+
+        // Settle back to 1.0 at beat boundary
+        tl.to(b.id, {
+          scaleY: 1.0,
+          duration: 0.35,
+          ease: "sine.inOut"
+        }, t0 + phaseOffset + 1.15);
+
+        // Peak caps gravity & hold animation:
+        const peakEl = document.querySelector(b.peak);
+        if (peakEl) {
+          const deltaY = -(b.baseH * (peakScale - 1.0));
+          // Rapid jump up with bar
+          tl.to(b.peak, {
+            y: deltaY,
+            duration: 0.32,
+            ease: "power2.out"
+          }, t0 + phaseOffset);
+
+          // Hold peak for 0.15s, then slow gravity decay
+          tl.to(b.peak, {
+            y: 0,
+            duration: 0.85,
+            ease: "power2.in"
+          }, t0 + phaseOffset + 0.32 + 0.15);
+        }
+      }
+    });
+
+    // 2. Fluid Wave Energy Flow along the V Path
+    // Stroke-dasharray / dashoffset wave traveling pulse
+    const waveEl = document.querySelector("#wave-primary");
+    const waveSecEl = document.querySelector("#wave-secondary");
+    const wavePathLen = waveEl.getTotalLength ? waveEl.getTotalLength() : 650;
+
+    gsap.set(waveEl, {
+      strokeDasharray: `${wavePathLen * 0.4} ${wavePathLen * 0.6}`,
+      strokeDashoffset: 0
+    });
+
+    gsap.set(waveSecEl, {
+      strokeDasharray: `${wavePathLen * 0.3} ${wavePathLen * 0.7}`,
+      strokeDashoffset: wavePathLen * 0.2
+    });
+
+    // Full 6s wave progression (seamless travel)
+    tl.to(waveEl, {
+      strokeDashoffset: -wavePathLen * 2,
+      duration: DURATION,
+      ease: "none"
+    }, 0);
+
+    tl.to(waveSecEl, {
+      strokeDashoffset: wavePathLen * 2,
+      duration: DURATION,
+      ease: "none"
+    }, 0);
+
+    // Subtle wave vertical breathing
+    tl.to("#wave-primary", {
+      scaleY: 1.08,
+      transformOrigin: "center center",
+      duration: 1.5,
+      ease: "sine.inOut",
+      yoyo: true,
+      repeat: 3
+    }, 0);
+
+    // 3. Apex Core Node Beats
+    for (let beat = 0; beat < 4; beat++) {
+      const t0 = beat * BEAT_LEN;
+      tl.to("#apex-pulse", {
+        scale: 2.2,
+        opacity: 0,
+        transformOrigin: "center center",
+        duration: 0.7,
+        ease: "power2.out"
+      }, t0);
+
+      tl.set("#apex-pulse", {
+        scale: 1.0,
+        opacity: 0.45
+      }, t0 + 0.75);
+
+      tl.to("#apex-outer", {
+        scale: 1.3,
+        transformOrigin: "center center",
+        duration: 0.25,
+        ease: "back.out(2)",
+        yoyo: true,
+        repeat: 1
+      }, t0);
+    }
+
+    // 4. Ambient Backlight Glow Breathing (Subtle audio atmospheric pressure)
+    tl.to("#ambient-light", {
+      opacity: 0.35,
+      scale: 1.08,
+      transformOrigin: "center center",
+      duration: 3.0,
+      ease: "sine.inOut",
+      yoyo: true,
+      repeat: 1
+    }, 0);
+
+    // 5. Container Subtle 3D Audio Settle
+    tl.to("#logo-wrapper", {
+      scale: 1.02,
+      duration: 3.0,
+      ease: "sine.inOut",
+      yoyo: true,
+      repeat: 1
+    }, 0);
+
+    // Ensure seamless terminal seek
+    tl.seek(0);
+
+    /* =========================================================================
+       INTERACTIVE CONTROLS & UI LOGIC
+       ========================================================================= */
+
+    let isPlaying = true;
+    let isLooping = true;
+    let playbackSpeed = 1.0;
+
+    const playBtn = document.getElementById("btn-play-pause");
+    const playIcon = document.getElementById("play-icon");
+    const playText = document.getElementById("play-text");
+    const restartBtn = document.getElementById("btn-restart");
+    const loopBtn = document.getElementById("btn-loop");
+    const speedSelect = document.getElementById("speed-select");
+    const scrubber = document.getElementById("scrubber");
+    const timeDisplay = document.getElementById("time-display");
+    const timeCurrent = document.getElementById("time-current");
+
+    function playAnimation() {
+      isPlaying = true;
+      playIcon.textContent = "⏸";
+      playText.textContent = "Pausar";
+      playBtn.classList.remove("btn-primary");
+      playBtn.classList.add("active");
+      tl.timeScale(playbackSpeed);
+      tl.play();
+    }
+
+    function pauseAnimation() {
+      isPlaying = false;
+      playIcon.textContent = "▶";
+      playText.textContent = "Reproducir";
+      playBtn.classList.add("btn-primary");
+      playBtn.classList.remove("active");
+      tl.pause();
+    }
+
+    function togglePlay() {
+      if (isPlaying) {
+        pauseAnimation();
+      } else {
+        if (tl.time() >= DURATION - 0.05) {
+          tl.seek(0);
+        }
+        playAnimation();
+      }
+    }
+
+    function restartAnimation() {
+      tl.seek(0);
+      updateScrubberUI();
+      if (!isPlaying) {
+        playAnimation();
+      }
+    }
+
+    function toggleLoop() {
+      isLooping = !isLooping;
+      if (isLooping) {
+        loopBtn.classList.add("active");
+        loopBtn.innerHTML = "<span>⟳</span><span>Bucle: ON</span>";
+      } else {
+        loopBtn.classList.remove("active");
+        loopBtn.innerHTML = "<span>⟳</span><span>Bucle: OFF</span>";
+      }
+    }
+
+    function handleTimelineComplete() {
+      if (isLooping) {
+        tl.restart();
+      } else {
+        pauseAnimation();
+      }
+    }
+
+    function updateScrubberUI() {
+      const curTime = tl.time();
+      scrubber.value = curTime.toFixed(2);
+      timeCurrent.textContent = curTime.toFixed(2) + "s";
+      timeDisplay.textContent = `${curTime.toFixed(2).padStart(5, "0")}s / ${DURATION.toFixed(2)}s (60 FPS)`;
+    }
+
+    // Event Listeners
+    playBtn.addEventListener("click", togglePlay);
+    restartBtn.addEventListener("click", restartAnimation);
+    loopBtn.addEventListener("click", toggleLoop);
+
+    speedSelect.addEventListener("change", (e) => {
+      playbackSpeed = parseFloat(e.target.value);
+      tl.timeScale(playbackSpeed);
+    });
+
+    scrubber.addEventListener("input", (e) => {
+      const targetTime = parseFloat(e.target.value);
+      tl.seek(targetTime);
+      updateScrubberUI();
+    });
+
+    // Keyboard navigation (Space to play/pause, Left/Right arrow to seek)
+    window.addEventListener("keydown", (e) => {
+      if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+      if (e.code === "Space") {
+        e.preventDefault();
+        togglePlay();
+      } else if (e.code === "ArrowLeft") {
+        e.preventDefault();
+        tl.seek(Math.max(0, tl.time() - 0.25));
+        updateScrubberUI();
+      } else if (e.code === "ArrowRight") {
+        e.preventDefault();
+        tl.seek(Math.min(DURATION, tl.time() + 0.25));
+        updateScrubberUI();
+      }
+    });
+
+    // Auto-start on load
+    window.addEventListener("DOMContentLoaded", () => {
+      playAnimation();
+    });
+  </script>
+</body>
+</html>

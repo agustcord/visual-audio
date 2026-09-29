@@ -58,6 +58,39 @@ PARAMS_ESTRUCTURALES: set[str] = {
     "n_barras", "frec_min", "frec_max", "curva_respuesta", "fps",
 }
 
+# Sistema de tokens de diseño canónicos "Visual Audio" (Dark Zinc + Cian/Violeta)
+TOKENS_DISENO: dict[str, Any] = {
+    # 1. Superficies y Fondos Base (Dark Zinc)
+    "bg_app": "#09090b",          # Dark Zinc 950: fondo exterior de ventana, viewport y canvas
+    "bg_panel": "#18181b",        # Dark Zinc 900: paneles laterales, tarjetas y formularios
+    "bg_elevado": "#27272a",      # Dark Zinc 800: superficies interactivas, botones oscuros, tracks
+    "bg_hover": "#3f3f46",        # Dark Zinc 700: estado hover y seleccionado
+    "borde_sutil": "#27272a",     # Separadores y bordes de paneles
+    "borde_fuerte": "#3f3f46",    # Bordes de inputs, swatches y grupos
+
+    # 2. Acentos de Marca Oficiales (Identidad Visual Audio)
+    "cian_primario": "#06b6d4",   # Cian 500: acento de transporte (Play), sliders de parámetros
+    "cian_brillante": "#22d3ee",  # Cian 400: hover de transporte, labels numéricos activos
+    "cian_focus": "#38bdf8",      # Anillo de foco e indicador de tiempo
+    "violeta_primario": "#8b5cf6",# Violeta 500: acento de exportación y presets
+    "violeta_brillante": "#a855f7",# Violeta 400: hover de exportación y títulos de preset
+    "acento_error": "#ef4444",    # Rojo / Peligro: diálogo de cancelación y alertas
+    "acento_exito": "#10b981",    # Verde esmeralda: exportación finalizada
+
+    # 3. Tipografía y Textos Accesibles (WCAG AAA / AA)
+    "texto_titular": "#fafafa",   # Zinc 50: títulos principales (contraste 16.9:1 sobre #18181b, AAA)
+    "texto_cuerpo": "#f4f4f5",    # Zinc 100: etiquetas y botones (contraste 15.9:1 sobre #18181b, AAA)
+    "texto_muted": "#a1a1aa",     # Zinc 400: textos descriptivos y pistas (contraste 5.8:1, AA)
+    "texto_oscuro": "#09090b",    # Zinc 950: texto de alto contraste sobre botón cian (ratio 11.4:1, AAA)
+
+    # 4. Familias Tipográficas
+    "fuente_ui": ("Segoe UI", 9),
+    "fuente_ui_bold": ("Segoe UI", 9, "bold"),
+    "fuente_titular": ("Segoe UI", 10, "bold"),
+    "fuente_display_tiempo": ("Consolas", 10, "bold"),
+}
+
+
 
 class _TareaRender:
     """Solicitud inmutable enviada al worker thread de render."""
@@ -121,9 +154,15 @@ class VentanaVisualizador:
     ) -> None:
         self._es_root_propio = root is None
         self.root = root or tk.Tk()
-        self.root.title("Visualizador de audio — Drift")
+        self.root.title("Visual Audio")
         self.root.geometry("1240x780")
         self.root.minsize(960, 600)
+        try:
+            self.root.configure(bg=TOKENS_DISENO["bg_app"])
+        except Exception:
+            pass
+        self._icono_img: ImageTk.PhotoImage | None = None
+        self._vincular_iconos_oficiales()
 
         # Estado del motor
         self._ruta_audio: Path | None = None
@@ -165,7 +204,11 @@ class VentanaVisualizador:
             name="WorkerRenderAsync",
         )
         self._worker_thread.start()
- 
+
+        # Optimización de proyección en canvas (O(1) frame swap sin find_withtag)
+        self._item_imagen_canvas_previo: int | None = None
+        self._mensaje_espera_activo: bool = True
+
         # Feedback visual de actualización y cursor inteligente (Bloque B / CA-POST-4)
         self._timer_badge_gracia: str | None = None
         self._timer_chequeo_resultados: str | None = None
@@ -208,8 +251,288 @@ class VentanaVisualizador:
                 self.cargar_audio(audio)
 
     # ----------------------------------------------------------------------- #
-    # Construcción de la Interfaz
+    # Construcción de la Interfaz y Estilos
     # ----------------------------------------------------------------------- #
+
+    def _vincular_iconos_oficiales(self) -> None:
+        """Vincula el icono de ventana (.ico en Windows) y de barra de tareas (.png High-DPI)."""
+        raiz_repo = Path(__file__).resolve().parent.parent.parent
+        ruta_ico = raiz_repo / "assets" / "logo" / "visual_audio.ico"
+        if ruta_ico.is_file():
+            try:
+                self.root.iconbitmap(str(ruta_ico))
+            except Exception:
+                pass
+
+        ruta_png = raiz_repo / "assets" / "logo" / "visual_audio_512.png"
+        if ruta_png.is_file():
+            try:
+                self._icono_img = ImageTk.PhotoImage(file=str(ruta_png))
+                self.root.iconphoto(True, self._icono_img)
+            except Exception:
+                pass
+
+    def _configurar_estilos(self) -> None:
+        """Configura el tema 'clam' y los estilos oscuros profesionales para toda la interfaz."""
+        style = ttk.Style(self.root)
+        try:
+            style.theme_use("clam")
+        except Exception:
+            pass
+
+        t = TOKENS_DISENO
+
+        # Frames y contenedores
+        style.configure("TFrame", background=t["bg_panel"])
+        style.configure("Dark.TFrame", background=t["bg_panel"])
+
+        # PanedWindow
+        style.configure("TPanedwindow", background=t["bg_app"])
+
+        # LabelFrame y sus títulos
+        style.configure(
+            "TLabelframe",
+            background=t["bg_panel"],
+            bordercolor=t["borde_sutil"],
+            lightcolor=t["borde_sutil"],
+            darkcolor=t["borde_sutil"],
+        )
+        style.configure(
+            "TLabelframe.Label",
+            background=t["bg_panel"],
+            foreground=t["cian_brillante"],
+            font=t["fuente_titular"],
+        )
+        style.configure(
+            "Dark.TLabelframe",
+            background=t["bg_panel"],
+            bordercolor=t["borde_sutil"],
+            lightcolor=t["borde_sutil"],
+            darkcolor=t["borde_sutil"],
+        )
+        style.configure(
+            "Dark.TLabelframe.Label",
+            background=t["bg_panel"],
+            foreground=t["cian_brillante"],
+            font=t["fuente_titular"],
+        )
+
+        # Labels estándar
+        style.configure(
+            "TLabel",
+            background=t["bg_panel"],
+            foreground=t["texto_cuerpo"],
+            font=t["fuente_ui"],
+        )
+        style.configure(
+            "Muted.TLabel",
+            background=t["bg_panel"],
+            foreground=t["texto_muted"],
+            font=t["fuente_ui"],
+        )
+        style.configure(
+            "DisplayValor.TLabel",
+            background=t["bg_panel"],
+            foreground=t["cian_brillante"],
+            font=t["fuente_ui_bold"],
+        )
+
+        # Display digital de tiempo (pastilla oscura, fuente Consolas 10pt bold, cian brillante)
+        style.configure(
+            "DAWDisplay.TLabel",
+            background=t["bg_app"],
+            foreground=t["cian_brillante"],
+            font=t["fuente_display_tiempo"],
+            padding=(8, 4),
+        )
+
+        # Botones estándar y acciones DAW
+        style.configure(
+            "TButton",
+            background=t["bg_elevado"],
+            foreground=t["texto_cuerpo"],
+            bordercolor=t["borde_fuerte"],
+            lightcolor=t["borde_sutil"],
+            darkcolor=t["borde_sutil"],
+            font=t["fuente_ui_bold"],
+            padding=(6, 3),
+        )
+        style.map(
+            "TButton",
+            background=[("disabled", t["bg_panel"]), ("pressed", t["bg_hover"]), ("active", t["bg_hover"])],
+            foreground=[("disabled", t["texto_muted"]), ("pressed", t["texto_titular"]), ("active", t["texto_titular"])],
+            bordercolor=[("active", t["cian_primario"])],
+        )
+
+        style.configure(
+            "DAWAction.TButton",
+            background=t["bg_elevado"],
+            foreground=t["texto_cuerpo"],
+            bordercolor=t["borde_fuerte"],
+            font=t["fuente_ui_bold"],
+            padding=(6, 3),
+        )
+        style.map(
+            "DAWAction.TButton",
+            background=[("disabled", t["bg_panel"]), ("pressed", t["bg_hover"]), ("active", t["bg_hover"])],
+            foreground=[("disabled", t["texto_muted"]), ("pressed", t["texto_titular"]), ("active", t["texto_titular"])],
+            bordercolor=[("active", t["cian_primario"])],
+        )
+
+        # Botones de navegación de transporte (Cuadro ◀ / ▶)
+        style.configure(
+            "DAWNav.TButton",
+            background=t["bg_elevado"],
+            foreground=t["texto_cuerpo"],
+            bordercolor=t["borde_fuerte"],
+            font=t["fuente_ui_bold"],
+            padding=(4, 3),
+        )
+        style.map(
+            "DAWNav.TButton",
+            background=[("disabled", t["bg_panel"]), ("pressed", t["bg_hover"]), ("active", t["bg_hover"])],
+            foreground=[("disabled", t["texto_muted"]), ("pressed", t["texto_titular"]), ("active", t["texto_titular"])],
+            bordercolor=[("active", t["cian_primario"])],
+        )
+
+        # Botón de transporte principal Play/Pausa (Cian neón destacado)
+        style.configure(
+            "DAWTransport.TButton",
+            background=t["cian_primario"],
+            foreground=t["texto_oscuro"],
+            bordercolor=t["cian_brillante"],
+            font=t["fuente_ui_bold"],
+            padding=(8, 4),
+        )
+        style.map(
+            "DAWTransport.TButton",
+            background=[("disabled", t["bg_elevado"]), ("pressed", t["cian_focus"]), ("active", t["cian_brillante"])],
+            foreground=[("disabled", t["texto_muted"]), ("pressed", t["texto_oscuro"]), ("active", t["texto_oscuro"])],
+            bordercolor=[("active", t["cian_brillante"])],
+        )
+
+        # Botón de Exportación principal (Violeta eléctrico destacado)
+        style.configure(
+            "DAWExport.TButton",
+            background=t["violeta_primario"],
+            foreground="#ffffff",
+            bordercolor=t["violeta_brillante"],
+            font=t["fuente_titular"],
+            padding=(10, 6),
+        )
+        style.map(
+            "DAWExport.TButton",
+            background=[("disabled", t["bg_elevado"]), ("pressed", "#7c3aed"), ("active", t["violeta_brillante"])],
+            foreground=[("disabled", t["texto_muted"]), ("pressed", "#ffffff"), ("active", "#ffffff")],
+            bordercolor=[("active", t["violeta_brillante"])],
+        )
+
+        # Deslizadores (Scale)
+        style.configure(
+            "Horizontal.TScale",
+            troughcolor=t["bg_elevado"],
+            background=t["cian_primario"],
+            bordercolor=t["borde_fuerte"],
+            lightcolor=t["cian_brillante"],
+            darkcolor=t["cian_primario"],
+        )
+        style.map(
+            "Horizontal.TScale",
+            background=[("active", t["cian_brillante"]), ("disabled", t["borde_fuerte"])],
+        )
+        style.configure(
+            "DAW.Horizontal.TScale",
+            troughcolor=t["bg_elevado"],
+            background=t["cian_primario"],
+            bordercolor=t["borde_fuerte"],
+            lightcolor=t["cian_brillante"],
+            darkcolor=t["cian_primario"],
+        )
+        style.map(
+            "DAW.Horizontal.TScale",
+            background=[("active", t["cian_brillante"]), ("disabled", t["borde_fuerte"])],
+        )
+
+        # Checkbutton
+        style.configure(
+            "TCheckbutton",
+            background=t["bg_panel"],
+            foreground=t["texto_cuerpo"],
+            font=t["fuente_ui"],
+        )
+        style.map(
+            "TCheckbutton",
+            foreground=[("active", t["texto_titular"]), ("disabled", t["texto_muted"])],
+            background=[("active", t["bg_panel"])],
+        )
+
+        # Combobox
+        style.configure(
+            "TCombobox",
+            background=t["bg_elevado"],
+            fieldbackground=t["bg_elevado"],
+            foreground=t["texto_cuerpo"],
+            bordercolor=t["borde_fuerte"],
+            arrowcolor=t["cian_brillante"],
+            font=t["fuente_ui"],
+            padding=3,
+        )
+        style.map(
+            "TCombobox",
+            fieldbackground=[("readonly", t["bg_elevado"]), ("focus", t["bg_hover"])],
+            foreground=[("readonly", t["texto_cuerpo"]), ("focus", t["texto_titular"])],
+            background=[("active", t["bg_hover"])],
+            bordercolor=[("focus", t["cian_primario"])],
+        )
+        style.configure(
+            "DAW.TCombobox",
+            background=t["bg_elevado"],
+            fieldbackground=t["bg_elevado"],
+            foreground=t["texto_cuerpo"],
+            bordercolor=t["borde_fuerte"],
+            arrowcolor=t["cian_brillante"],
+            font=t["fuente_ui"],
+            padding=3,
+        )
+        style.map(
+            "DAW.TCombobox",
+            fieldbackground=[("readonly", t["bg_elevado"]), ("focus", t["bg_hover"])],
+            foreground=[("readonly", t["texto_cuerpo"]), ("focus", t["texto_titular"])],
+            background=[("active", t["bg_hover"])],
+            bordercolor=[("focus", t["cian_primario"])],
+        )
+
+        # Scrollbar
+        style.configure(
+            "Vertical.TScrollbar",
+            background=t["bg_elevado"],
+            troughcolor=t["bg_panel"],
+            bordercolor=t["bg_panel"],
+            arrowcolor=t["texto_muted"],
+        )
+        style.map(
+            "Vertical.TScrollbar",
+            background=[("active", t["bg_hover"]), ("pressed", t["cian_primario"])],
+        )
+        style.configure(
+            "DAW.Vertical.TScrollbar",
+            background=t["bg_elevado"],
+            troughcolor=t["bg_panel"],
+            bordercolor=t["bg_panel"],
+            arrowcolor=t["texto_muted"],
+        )
+        style.map(
+            "DAW.Vertical.TScrollbar",
+            background=[("active", t["bg_hover"]), ("pressed", t["cian_primario"])],
+        )
+
+        # Progressbar
+        style.configure(
+            "Horizontal.TProgressbar",
+            troughcolor=t["bg_elevado"],
+            background=t["cian_primario"],
+            bordercolor=t["borde_fuerte"],
+        )
 
     def _inicializar_variables(self) -> None:
         """Inicializa una variable Tkinter por cada parámetro del ESQUEMA."""
@@ -227,6 +550,7 @@ class VentanaVisualizador:
             self._variables[nombre] = var
 
     def _construir_interfaz(self) -> None:
+        self._configurar_estilos()
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
 
@@ -235,12 +559,12 @@ class VentanaVisualizador:
         self._paned.grid(row=0, column=0, sticky="nsew")
 
         # --- Panel Izquierdo: Visualización y Transporte ---
-        self._panel_izq = ttk.Frame(self._paned, padding=8)
+        self._panel_izq = ttk.Frame(self._paned, padding=8, style="Dark.TFrame")
         self._paned.add(self._panel_izq, weight=3)
         self._construir_panel_izquierdo()
 
         # --- Panel Derecho: Control y Parámetros ---
-        self._panel_der = ttk.Frame(self._paned, padding=8)
+        self._panel_der = ttk.Frame(self._paned, padding=8, style="Dark.TFrame")
         self._paned.add(self._panel_der, weight=2)
         self._construir_panel_derecho()
 
@@ -250,12 +574,12 @@ class VentanaVisualizador:
         self._panel_izq.rowconfigure(1, weight=0)
 
         # Área de visualización del lienzo
-        frame_canvas = ttk.Frame(self._panel_izq)
+        frame_canvas = ttk.Frame(self._panel_izq, style="Dark.TFrame")
         frame_canvas.grid(row=0, column=0, sticky="nsew")
         frame_canvas.columnconfigure(0, weight=1)
         frame_canvas.rowconfigure(0, weight=1)
 
-        self.canvas_preview = tk.Canvas(frame_canvas, bg="#111114", highlightthickness=0)
+        self.canvas_preview = tk.Canvas(frame_canvas, bg=TOKENS_DISENO["bg_app"], highlightthickness=0)
         self.canvas_preview.grid(row=0, column=0, sticky="nsew")
         self.canvas_preview.bind("<Configure>", self._al_redimensionar_canvas)
 
@@ -263,11 +587,11 @@ class VentanaVisualizador:
         self._badge_actualizando = tk.Label(
             self.canvas_preview,
             text="⏳ Actualizando...",
-            bg="#18181B",
-            fg="#F4F4F5",
-            font=("TkDefaultFont", 9, "bold"),
-            highlightbackground="#3F3F46",
-            highlightcolor="#3F3F46",
+            bg=TOKENS_DISENO["bg_panel"],
+            fg=TOKENS_DISENO["texto_cuerpo"],
+            font=TOKENS_DISENO["fuente_ui_bold"],
+            highlightbackground=TOKENS_DISENO["borde_fuerte"],
+            highlightcolor=TOKENS_DISENO["borde_fuerte"],
             highlightthickness=1,
             bd=0,
             padx=10,
@@ -279,7 +603,7 @@ class VentanaVisualizador:
         self._dibujar_mensaje_espera("Cargá un archivo de audio (.mp3, .wav, .flac) para previsualizar")
 
         # Barra de transporte
-        frame_transporte = ttk.LabelFrame(self._panel_izq, text="Transporte", padding=6)
+        frame_transporte = ttk.LabelFrame(self._panel_izq, text="Transporte", padding=6, style="Dark.TLabelframe")
         frame_transporte.grid(row=1, column=0, sticky="ew", pady=(8, 0))
         frame_transporte.columnconfigure(1, weight=1)
 
@@ -292,6 +616,7 @@ class VentanaVisualizador:
             to=0,
             variable=self._var_escala_tiempo,
             command=self._al_mover_escala_tiempo,
+            style="DAW.Horizontal.TScale",
         )
         self.scale_tiempo.grid(row=0, column=0, columnspan=4, sticky="ew", padx=4, pady=2)
         self.scale_tiempo.bind("<ButtonPress-1>", self._al_iniciar_scrubbing)
@@ -299,17 +624,28 @@ class VentanaVisualizador:
         self.scale_tiempo.bind("<ButtonRelease-1>", self._al_finalizar_scrubbing)
 
         # Botones y etiquetas de transporte
-        self.btn_prev_frame = ttk.Button(frame_transporte, text="◀ Cuadro", width=9, command=self._retroceder_un_cuadro)
+        self.btn_prev_frame = ttk.Button(
+            frame_transporte, text="◀ Cuadro", width=9, command=self._retroceder_un_cuadro, style="DAWNav.TButton"
+        )
         self.btn_prev_frame.grid(row=1, column=0, sticky="w", padx=2, pady=4)
 
-        self.btn_play_pausa = ttk.Button(frame_transporte, text="▶ Reproducir", command=self._alternar_reproduccion)
+        self.btn_play_pausa = ttk.Button(
+            frame_transporte, text="▶ Reproducir", command=self._alternar_reproduccion, style="DAWTransport.TButton"
+        )
         self.btn_play_pausa.grid(row=1, column=1, sticky="w", padx=4, pady=4)
         self.btn_animar = self.btn_play_pausa  # Alias de compatibilidad hacia atrás
 
-        self.btn_next_frame = ttk.Button(frame_transporte, text="Cuadro ▶", width=9, command=self._avanzar_un_cuadro)
+        self.btn_next_frame = ttk.Button(
+            frame_transporte, text="Cuadro ▶", width=9, command=self._avanzar_un_cuadro, style="DAWNav.TButton"
+        )
         self.btn_next_frame.grid(row=1, column=2, sticky="w", padx=2, pady=4)
 
-        self.lbl_tiempo = ttk.Label(frame_transporte, text="00:00.000 / 00:00.000 (0 / 0)", font=("TkDefaultFont", 9, "bold"))
+        self.lbl_tiempo = ttk.Label(
+            frame_transporte,
+            text="00:00.000 / 00:00.000 (0 / 0)",
+            style="DAWDisplay.TLabel",
+            font=TOKENS_DISENO["fuente_display_tiempo"],
+        )
         self.lbl_tiempo.grid(row=1, column=3, sticky="e", padx=4, pady=4)
 
     def _construir_panel_derecho(self) -> None:
@@ -317,23 +653,29 @@ class VentanaVisualizador:
         self._panel_der.rowconfigure(3, weight=1)
 
         # 1. Barra de acciones principales (Archivos y Proyectos)
-        frame_acciones = ttk.Frame(self._panel_der)
+        frame_acciones = ttk.Frame(self._panel_der, style="Dark.TFrame")
         frame_acciones.grid(row=0, column=0, sticky="ew", pady=(0, 4))
         frame_acciones.columnconfigure(0, weight=1)
         frame_acciones.columnconfigure(1, weight=1)
         frame_acciones.columnconfigure(2, weight=1)
 
-        btn_cargar_audio = ttk.Button(frame_acciones, text="Cargar Audio", command=self._dialogo_cargar_audio)
+        btn_cargar_audio = ttk.Button(
+            frame_acciones, text="Cargar Audio", command=self._dialogo_cargar_audio, style="DAWAction.TButton"
+        )
         btn_cargar_audio.grid(row=0, column=0, sticky="ew", padx=2, pady=2)
 
-        btn_abrir_proy = ttk.Button(frame_acciones, text="Abrir Proyecto", command=self._dialogo_abrir_proyecto)
+        btn_abrir_proy = ttk.Button(
+            frame_acciones, text="Abrir Proyecto", command=self._dialogo_abrir_proyecto, style="DAWAction.TButton"
+        )
         btn_abrir_proy.grid(row=0, column=1, sticky="ew", padx=2, pady=2)
 
-        btn_guardar_proy = ttk.Button(frame_acciones, text="Guardar Proyecto", command=self._dialogo_guardar_proyecto)
+        btn_guardar_proy = ttk.Button(
+            frame_acciones, text="Guardar Proyecto", command=self._dialogo_guardar_proyecto, style="DAWAction.TButton"
+        )
         btn_guardar_proy.grid(row=0, column=2, sticky="ew", padx=2, pady=2)
 
         # 2. Barra de Presets y Estilos
-        frame_estilo_preset = ttk.LabelFrame(self._panel_der, text="Estilo y Preset", padding=6)
+        frame_estilo_preset = ttk.LabelFrame(self._panel_der, text="Estilo y Preset", padding=6, style="Dark.TLabelframe")
         frame_estilo_preset.grid(row=1, column=0, sticky="ew", pady=(0, 6))
         frame_estilo_preset.columnconfigure(1, weight=1)
 
@@ -344,6 +686,7 @@ class VentanaVisualizador:
             frame_estilo_preset,
             values=nombres_estilos,
             state="readonly",
+            style="DAW.TCombobox",
         )
         self._combo_estilos.set(self._estilo)
         self._combo_estilos.grid(row=0, column=1, columnspan=2, sticky="ew", padx=4, pady=2)
@@ -356,26 +699,36 @@ class VentanaVisualizador:
             frame_estilo_preset,
             values=presets_disp,
             state="readonly",
+            style="DAW.TCombobox",
         )
         if presets_disp:
             self._combo_presets.set(presets_disp[0])
         self._combo_presets.grid(row=1, column=1, sticky="ew", padx=4, pady=2)
 
-        btn_aplicar_pre = ttk.Button(frame_estilo_preset, text="Aplicar", width=8, command=self._al_pulsar_aplicar_preset)
+        btn_aplicar_pre = ttk.Button(
+            frame_estilo_preset, text="Aplicar", width=8, command=self._al_pulsar_aplicar_preset, style="DAWAction.TButton"
+        )
         btn_aplicar_pre.grid(row=1, column=2, sticky="e", padx=2, pady=2)
 
-        btn_guardar_pre = ttk.Button(frame_estilo_preset, text="Guardar Preset...", command=self._dialogo_guardar_preset)
+        btn_guardar_pre = ttk.Button(
+            frame_estilo_preset, text="Guardar Preset...", command=self._dialogo_guardar_preset, style="DAWAction.TButton"
+        )
         btn_guardar_pre.grid(row=2, column=1, columnspan=2, sticky="e", padx=2, pady=(2, 0))
 
         # 3. Contenedor scrollable vertical para el formulario dinámico
-        frame_scroll = ttk.Frame(self._panel_der)
+        frame_scroll = ttk.Frame(self._panel_der, style="Dark.TFrame")
         frame_scroll.grid(row=3, column=0, sticky="nsew", pady=(0, 6))
         frame_scroll.columnconfigure(0, weight=1)
         frame_scroll.rowconfigure(0, weight=1)
 
-        self._canvas_form = tk.Canvas(frame_scroll, borderwidth=0, highlightthickness=0)
-        self._scrollbar_form = ttk.Scrollbar(frame_scroll, orient="vertical", command=self._canvas_form.yview)
-        self._frame_form_interior = ttk.Frame(self._canvas_form)
+        self._canvas_form = tk.Canvas(
+            frame_scroll,
+            bg=TOKENS_DISENO["bg_panel"],
+            borderwidth=0,
+            highlightthickness=0,
+        )
+        self._scrollbar_form = ttk.Scrollbar(frame_scroll, orient="vertical", command=self._canvas_form.yview, style="DAW.Vertical.TScrollbar")
+        self._frame_form_interior = ttk.Frame(self._canvas_form, style="Dark.TFrame")
 
         self._frame_form_interior.bind(
             "<Configure>",
@@ -403,18 +756,19 @@ class VentanaVisualizador:
         self._generar_formulario_dinamico()
 
         # 4. Botón inferior destacado: Exportar Video
-        btn_exportar = ttk.Button(
+        self.btn_exportar = ttk.Button(
             self._panel_der,
             text="🎬  Exportar Video (WebM)",
             command=self._dialogo_exportar_video,
+            style="DAWExport.TButton",
         )
-        btn_exportar.grid(row=4, column=0, sticky="ew", ipady=6, pady=(4, 0))
+        self.btn_exportar.grid(row=4, column=0, sticky="ew", ipady=6, pady=(4, 0))
 
     def _generar_formulario_dinamico(self) -> None:
         """Crea las secciones y controles del formulario leyendo parametros.ESQUEMA."""
         # Secciones por grupo
         for grupo_id, grupo_titulo in parametros.GRUPOS.items():
-            labelframe = ttk.LabelFrame(self._frame_form_interior, text=grupo_titulo, padding=6)
+            labelframe = ttk.LabelFrame(self._frame_form_interior, text=grupo_titulo, padding=6, style="Dark.TLabelframe")
             labelframe.pack(fill="x", expand=True, padx=4, pady=4)
             labelframe.columnconfigure(0, weight=1)
 
@@ -423,7 +777,7 @@ class VentanaVisualizador:
                 if def_val.grupo != grupo_id:
                     continue
 
-                fila = ttk.Frame(labelframe)
+                fila = ttk.Frame(labelframe, style="Dark.TFrame")
                 fila.pack(fill="x", expand=True, pady=2)
                 fila.columnconfigure(1, weight=1)
                 self._filas_parametro[nombre] = fila
@@ -437,7 +791,7 @@ class VentanaVisualizador:
                     lbl.grid(row=0, column=0, sticky="w", padx=(0, 4))
                     self._widgets_por_parametro[nombre].append(lbl)
 
-                    c_frame = ttk.Frame(fila)
+                    c_frame = ttk.Frame(fila, style="Dark.TFrame")
                     c_frame.grid(row=0, column=1, sticky="ew")
                     c_frame.columnconfigure(0, weight=1)
 
@@ -449,6 +803,9 @@ class VentanaVisualizador:
                         width=10,
                         relief="solid",
                         borderwidth=1,
+                        highlightbackground=TOKENS_DISENO["borde_fuerte"],
+                        highlightcolor=TOKENS_DISENO["borde_fuerte"],
+                        highlightthickness=1,
                         cursor="hand2",
                     )
                     muestra.grid(row=0, column=0, sticky="ew", padx=(0, 4))
@@ -460,6 +817,7 @@ class VentanaVisualizador:
                         text="Elegir...",
                         width=8,
                         command=lambda n=nombre: self._elegir_color(n),
+                        style="DAWAction.TButton",
                     )
                     btn_color.grid(row=0, column=1, sticky="e")
                     self._widgets_por_parametro[nombre].append(btn_color)
@@ -477,6 +835,7 @@ class VentanaVisualizador:
                         textvariable=var,
                         values=list(def_val.opciones),
                         state="readonly",
+                        style="DAW.TCombobox",
                     )
                     combo.grid(row=0, column=1, sticky="ew")
                     combo.bind("<<ComboboxSelected>>", lambda e, n=nombre: self._al_cambiar_parametro(n))
@@ -499,7 +858,7 @@ class VentanaVisualizador:
 
                     val_ini = var.get()
                     formato_txt = f"{int(round(val_ini))} {def_val.unidad}" if def_val.tipo is int else f"{float(val_ini):.2f} {def_val.unidad}"
-                    lbl_val = ttk.Label(fila, text=formato_txt.strip(), width=9, anchor="e")
+                    lbl_val = ttk.Label(fila, text=formato_txt.strip(), width=9, anchor="e", style="DisplayValor.TLabel")
                     lbl_val.grid(row=0, column=2, sticky="e", padx=(4, 0))
                     self._labels_display[nombre] = lbl_val
                     self._widgets_por_parametro[nombre].append(lbl_val)
@@ -511,6 +870,7 @@ class VentanaVisualizador:
                         variable=var,
                         orient="horizontal",
                         command=lambda v, n=nombre: self._al_mover_slider(n, v),
+                        style="DAW.Horizontal.TScale",
                     )
                     scale.grid(row=0, column=1, sticky="ew")
                     self._widgets_por_parametro[nombre].append(scale)
@@ -592,14 +952,20 @@ class VentanaVisualizador:
         params_actuales = self.obtener_parametros()
         for nombre, widgets in self._widgets_por_parametro.items():
             activo = parametros.tiene_efecto(params_actuales, nombre)
-            nuevo_estado = "normal" if activo else "disabled"
+            nuevo_combo = "readonly" if activo else "disabled"
+            nuevo_std = "normal" if activo else "disabled"
             for w in widgets:
                 if isinstance(w, ttk.Combobox):
-                    w.config(state="readonly" if activo else "disabled")
+                    try:
+                        if str(w.cget("state")) != nuevo_combo:
+                            w.config(state=nuevo_combo)
+                    except Exception:
+                        pass
                 elif isinstance(w, (ttk.Button, ttk.Scale, ttk.Checkbutton, tk.Label)):
                     try:
-                        w.config(state=nuevo_estado)
-                    except tk.TclError:
+                        if str(w.cget("state")) != nuevo_std:
+                            w.config(state=nuevo_std)
+                    except Exception:
                         pass
 
     def _actualizar_visibilidad_por_estilo(self) -> None:
@@ -950,6 +1316,8 @@ class VentanaVisualizador:
 
     def _ocultar_badge_actualizando(self) -> None:
         """Oculta el badge visual y restaura el cursor normal ('')."""
+        if not getattr(self, "_badge_visible", False):
+            return
         self._badge_visible = False
         if hasattr(self, "_badge_actualizando") and self._badge_actualizando.winfo_exists():
             try:
@@ -1307,13 +1675,22 @@ class VentanaVisualizador:
         y = ch // 2
 
         # Preservación de fotograma previo (Ghost frame / Never blank):
-        # Dibujamos el nuevo cuadro y luego removemos el anterior para evitar
-        # cualquier cuadro negro o parpadeo intermedio en el canvas.
+        # Dibujamos el nuevo cuadro y luego removemos el anterior por ID directo (O(1))
+        # para evitar cualquier cuadro negro o parpadeo intermedio en el canvas.
         item_nuevo = self.canvas_preview.create_image(x, y, image=img_tk, anchor="center", tags="canvas_imagen")
-        for item_id in self.canvas_preview.find_withtag("canvas_imagen"):
-            if item_id != item_nuevo:
-                self.canvas_preview.delete(item_id)
-        self.canvas_preview.delete("mensaje_espera")
+        if self._item_imagen_canvas_previo is not None:
+            try:
+                self.canvas_preview.delete(self._item_imagen_canvas_previo)
+            except Exception:
+                pass
+        self._item_imagen_canvas_previo = item_nuevo
+
+        if getattr(self, "_mensaje_espera_activo", True):
+            try:
+                self.canvas_preview.delete("mensaje_espera")
+            except Exception:
+                pass
+            self._mensaje_espera_activo = False
 
         if hasattr(self, "_badge_actualizando") and self._badge_visible:
             self._badge_actualizando.lift()
@@ -1326,13 +1703,15 @@ class VentanaVisualizador:
 
     def _dibujar_mensaje_espera(self, mensaje: str) -> None:
         self.canvas_preview.delete("all")
+        self._item_imagen_canvas_previo = None
+        self._mensaje_espera_activo = True
         cw = max(10, self.canvas_preview.winfo_width())
         ch = max(10, self.canvas_preview.winfo_height())
         self.canvas_preview.create_text(
             cw // 2, ch // 2,
             text=mensaje,
-            fill="#A1A1AA",
-            font=("TkDefaultFont", 11),
+            fill=TOKENS_DISENO["texto_muted"],
+            font=("Segoe UI", 11),
             justify="center",
             tags="mensaje_espera",
         )
@@ -1560,13 +1939,17 @@ class VentanaVisualizador:
         dlg.geometry("420x180")
         dlg.resizable(False, False)
         try:
+            dlg.configure(bg=TOKENS_DISENO["bg_panel"])
+        except Exception:
+            pass
+        try:
             if self.root.winfo_viewable():
                 dlg.transient(self.root)
                 dlg.grab_set()
         except tk.TclError:
             pass
 
-        lbl_tit = ttk.Label(dlg, text="Exportando video para Drift...", font=("TkDefaultFont", 10, "bold"))
+        lbl_tit = ttk.Label(dlg, text="Exportando video para Drift...", font=TOKENS_DISENO["fuente_titular"])
         lbl_tit.pack(pady=(16, 6))
 
         lbl_estado = ttk.Label(dlg, text=f"0%  (0 / {total_cuadros} cuadros)")
@@ -1575,7 +1958,7 @@ class VentanaVisualizador:
         prog_bar = ttk.Progressbar(dlg, orient="horizontal", length=350, mode="determinate", maximum=total_cuadros)
         prog_bar.pack(pady=6)
 
-        btn_cancelar = ttk.Button(dlg, text="Cancelar", command=lambda: self.cancelar_exportacion(btn_cancelar))
+        btn_cancelar = ttk.Button(dlg, text="Cancelar", command=lambda: self.cancelar_exportacion(btn_cancelar), style="DAWAction.TButton")
         btn_cancelar.pack(pady=(8, 0))
 
         self._dialogo_progreso = dlg

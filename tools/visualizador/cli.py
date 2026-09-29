@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from . import consola, estilos, parametros, proyecto
+from . import __version__, consola, estilos, parametros, proyecto
 from .analisis import ErrorDeAnalisis, analizar
 from .render import Render
 from .salida import ErrorDeSalida, SIGUIENTE_PASO, exportar
@@ -94,6 +94,7 @@ def construir_parser() -> argparse.ArgumentParser:
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    p.add_argument("--version", action="version", version=f"Visual Audio v{__version__}")
     p.add_argument("audio", type=Path, nargs="?",
                    help="archivo de audio (mp3, wav, flac, m4a, ogg)")
     p.add_argument("-o", "--salida", type=Path, default=None,

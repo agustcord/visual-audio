@@ -1,101 +1,225 @@
-# Visualizador de audio para Drift
+<p align="center">
+  <img src="assets/logo/visual_audio_512.png" alt="Visual Audio" width="128">
+</p>
 
-Plugin y aplicación complementaria para el editor de video **[Drift](https://github.com/CutWire-Studios/Drift)** (CutWire Studios) que genera e incrusta el espectro o la forma de onda del audio sobre el video musical.
+<h1 align="center">Visual Audio</h1>
 
-Proyecto de **Jonatan Córdoba**, usuario externo de Drift — **no forma parte del equipo de CutWire Studios**.
+<p align="center">
+  <em>Visualizador de audio reactivo de alto rendimiento para Drift y suites de video.</em>
+</p>
 
----
-
-## Estado
-
-**MVP Cerrado y Catalogado (v0.1.0-mvp) — Etapas 1 a 7 cerradas con PASS formal del Fundador.**  
-La versión de línea base cuenta con suite completa de **277 comprobaciones automáticas pasando al 100% en verde**.  
-Intento de optimización post-MVP (rendimiento y maquillaje UX): ❌ **FAIL formal del Capitán (T27)** — Rendimiento insuficiente, congelamientos persistentes en UI y maquillaje no apreciado en el uso real (**NO APROBADO**).  
-Próximo ciclo: **Fase 0 — Investigación del estándar de la industria** (Ani Investigadora) sobre cómo manejan editores de video y herramientas afines la previsualización interactiva y el render de audio-reactividad.
-
-El estado vivo y los detalles de continuidad están en **[`RETOMAR.md`](RETOMAR.md)**.
-
-### Cómo abrirlo y probarlo
-
-1. **Interfaz Gráfica (Recomendado):**  
-   Hacé doble clic en **`visualizador.bat`** en la raíz del repositorio. Se abre inmediatamente la aplicación de escritorio sin consolas de fondo. Cargás tu canción, escuchás la música con el reproductor sincronizado en tiempo real (Play/Pausa continuo y scrubbing interactivo), personalizás la reacción y los colores a gusto y exportás el video WebM.
-2. **Línea de Comandos:**  
-   ```powershell
-   .\visualizador.bat tests\fixtures\pista_espectro.wav -o build\onda.webm
-   # O directamente con Python:
-   python -m visualizador tests\fixtures\pista_espectro.wav -o build\onda.webm
-   ```
-3. **Composición en Drift 0.6.0:**  
-   Importás el archivo `.webm` generado, lo ubicás en una pista por encima del video y ponés el modo de fusión en **Trama (Screen)**. El fondo negro desaparece de forma exacta. Para detalles y compensación de color (`compensar_fondo`), consultá [`docs/GUIA_DE_USO.md`](docs/GUIA_DE_USO.md) y [`docs/COMO_USAR.md`](docs/COMO_USAR.md).
-
-> **Compatibilidad con Drift:** Drift 0.6.0 no procesa video con canal alpha nativo en el timeline. El método estándar verificado es fondo negro + fusión Trama (o Chroma Key secundario). Cuando esté disponible Drift 0.7.0, el modo `--fondo transparente` ya está construido en el motor y listo para usarse.
+<p align="center">
+  <img src="https://img.shields.io/badge/version-0.1.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/platform-Windows%2010%20%2F%2011-0078D6" alt="Platform">
+  <img src="https://img.shields.io/badge/python-3.10%2B-3776AB" alt="Python">
+  <img src="https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-green" alt="License">
+  <img src="https://img.shields.io/badge/render-Viewport%20LOD%20%4060%20FPS-00E5FF" alt="Render">
+  <img src="https://img.shields.io/badge/integración-Drift%200.6.0%2B-FF6B35" alt="Drift">
+</p>
 
 ---
 
-## Por dónde entrar
+## Qué es Visual Audio
 
-| Si querés… | Leé |
-|---|---|
-| **Usar la aplicación** | **[`docs/GUIA_DE_USO.md`](docs/GUIA_DE_USO.md)** o [`docs/COMO_USAR.md`](docs/COMO_USAR.md) |
-| **Trabajar en el proyecto (agentes)** | **[`docs/RUTA_DE_TRABAJO.md`](docs/RUTA_DE_TRABAJO.md)** — mapa de etapas y reglas de trabajo |
-| Saber dónde retomar el trabajo | [`RETOMAR.md`](RETOMAR.md) |
-| Saber qué hace el MVP y sus criterios | [`docs/MVP.md`](docs/MVP.md) |
-| **Arquitectura técnica y contratos** | [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md) |
-| Entender el color en modo Trama | [`docs/COLOR_EN_TRAMA.md`](docs/COLOR_EN_TRAMA.md) |
-| Viabilidad técnica inicial | [`docs/VIABILIDAD.md`](docs/VIABILIDAD.md) |
-| Entender el propósito y la autoridad | [`sobre_este_plugins.txt`](sobre_este_plugins.txt) — documento fundacional |
-| Navegar la memoria técnica completa | [`.memory/index.md`](.memory/index.md) |
-| Ver la bitácora de turnos | [`.memory/log.md`](.memory/log.md) |
+Visual Audio genera overlays de audio-reactividad (espectrograma FFT y osciloscopio de onda) con precisión matemática, soporte de canal transparente / modo Trama y previsualización interactiva a 60 fps con pre-bake en tiempo constante O(1).
 
----
+**En una línea:** Cargás tu canción, elegís un estilo, escuchás la música sincronizada en tiempo real y exportás un video WebM listo para componer en Drift (o cualquier editor de video).
 
-## El hallazgo que define el proyecto
+### Características principales
 
-En una línea: **Drift no le da ningún dato de audio a sus shaders.**
-
-Eso significa que un visualizador **no** puede ser un efecto interno de Drift que reaccione a la música mientras renderiza. Verificado leyendo el código fuente: Drift tiene tuberías completas para llevar profundidad (`u_depth*`) y rostros (`u_face*`) a un shader, pero ninguna para audio.
-
-**El camino viable y óptimo** es generar el visualizador externamente y componerlo como un overlay en Drift con modo de fusión Trama. Tamaño, posición, velocidad y opacidad los maneja Drift con sus propios controles nativos.
+- **3 estilos de visualización:** Barras de frecuencia, Barras espejadas y Onda simétrica.
+- **Previsualización en tiempo real:** Viewport LOD a 60 FPS con reproductor de audio sincronizado (play, pausa, scrubbing).
+- **Exportación determinista:** Lo que ves en la vista previa es exactamente lo que se exporta (MVP-5).
+- **Composición perfecta en Drift:** Fondo negro + modo de fusión Trama (Screen) con compensación de color automática.
+- **Presets de fábrica:** Barras Neón, Barras Blancas, Espejadas Frecuencia, Onda Suave — y podés crear los tuyos.
+- **Tema Dark Zinc 950/900:** Interfaz moderna con acentos cian y violeta.
 
 ---
 
-## Organización del repositorio
+## Galería
+
+<table>
+  <tr>
+    <td align="center"><strong>Barras de frecuencia</strong></td>
+    <td align="center"><strong>Onda simétrica</strong></td>
+  </tr>
+  <tr>
+    <td><img src="assets/screenshots/01_estilo_barras.png" alt="Estilo Barras" width="400"></td>
+    <td><img src="assets/screenshots/02_estilo_onda.png" alt="Estilo Onda" width="400"></td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2"><strong>Barras espejadas</strong></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="assets/screenshots/03_estilo_espejadas.png" alt="Estilo Espejadas" width="400"></td>
+  </tr>
+</table>
+
+---
+
+## Instalación (Windows)
+
+### Requisitos previos
+
+1. **Python 3.10 o superior**
+   - Descargá desde [python.org](https://www.python.org/downloads/).
+   - **Importante:** Marcá la casilla *"Add Python to PATH"* durante la instalación.
+
+2. **FFmpeg**
+   - Descargá desde [ffmpeg.org](https://ffmpeg.org/download.html) o con `winget install ffmpeg`.
+   - Asegurate de que `ffmpeg.exe` y `ffplay.exe` estén accesibles en el PATH del sistema.
+
+### Pasos
+
+```powershell
+# 1. Clonar el repositorio
+git clone https://github.com/tu-usuario/visual-audio.git
+cd visual-audio
+
+# 2. Instalar dependencias de Python
+pip install -r requirements.txt
+
+# 3. Instalar localmente (requerido para que Python encuentre el módulo en tools/)
+pip install -e .
+
+# 4. Verificar que funciona
+python -m visualizador --version
+```
+
+---
+
+## Modo de uso
+
+### Interfaz gráfica (recomendado)
+
+Hacé doble clic en **`visualizador.bat`** en la raíz del repositorio. Se abre la aplicación de escritorio sin consolas de fondo.
+
+> **Nota:** El script `visualizador.bat` agrega automáticamente la carpeta `tools/` al `PYTHONPATH`. Puede ser usado como alternativa directa si no querés hacer la instalación con `pip install -e .`.
+
+```powershell
+# O desde la terminal (requiere haber ejecutado pip install -e . previamente):
+python -m visualizador
+```
+
+1. Cargá tu canción (WAV, MP3, FLAC, OGG o cualquier formato que soporte FFmpeg).
+2. Elegí un estilo y ajustá los parámetros a gusto.
+3. Escuchá la música sincronizada en tiempo real con el reproductor integrado.
+4. Exportá el video WebM.
+
+### Línea de comandos (CLI)
+
+```powershell
+# Render básico con preset de fábrica
+python -m visualizador mi_cancion.wav -o salida.webm --preset barras_neon
+
+# Personalizar parámetros
+python -m visualizador mi_cancion.wav -o salida.webm --estilo onda --color "#00FFCC" --grosor_linea 4
+```
+
+### Composición en Drift
+
+1. Exportá el video WebM desde Visual Audio.
+2. Importá el archivo `.webm` en Drift 0.6.0+ y ubicalo en una pista por encima del video.
+3. Poné el modo de fusión en **Trama (Screen)**.
+4. El fondo negro desaparece de forma exacta y el overlay queda compuesto.
+
+> **Nota:** Drift 0.6.0 no procesa video con canal alpha nativo en el timeline. El método estándar verificado es fondo negro + fusión Trama. Cuando esté disponible Drift 0.7.0, el modo `--fondo transparente` ya está construido en el motor y listo para usarse.
+
+Para detalles sobre compensación de color y ajuste fino, consultá [`docs/GUIA_DE_USO.md`](docs/GUIA_DE_USO.md) y [`docs/COLOR_EN_TRAMA.md`](docs/COLOR_EN_TRAMA.md).
+
+---
+
+## Estilos y presets
+
+### Estilos de visualización
+
+| Estilo | Descripción | Parámetros clave |
+|--------|-------------|------------------|
+| **Barras** | Espectro de frecuencias como barras verticales | Color, degradado, resplandor, reflejo, redondeo |
+| **Espejadas** | Barras de frecuencia espejadas simétricamente | Color, degradado, redondeo |
+| **Onda** | Forma de onda como curva continua (osciloscopio) | Color, grosor de línea, relleno, degradado |
+
+### Presets de fábrica
+
+| Preset | Estilo | Aspecto |
+|--------|--------|---------|
+| `barras_neon` | Barras | Cian a azul con resplandor y reflejo |
+| `barras_blancas` | Barras | Blanco puro sobre negro, sin degradado |
+| `espejadas_frecuencia` | Espejadas | Rosa a violeta con redondeo |
+| `onda_suave` | Onda | Verde agua con relleno y degradado vertical |
+
+Podés crear tus propios presets guardando un archivo JSON en la carpeta `presets/`. La estructura es simple:
+
+```json
+{
+  "version": 1,
+  "estilo": "barras",
+  "params": {
+    "color": "#00E5FF",
+    "degradado": "altura",
+    "resplandor": 0.3
+  }
+}
+```
+
+---
+
+## Documentación
+
+| Documento | Contenido |
+|-----------|-----------|
+| [`docs/GUIA_DE_USO.md`](docs/GUIA_DE_USO.md) | Guía completa de uso de la aplicación |
+| [`docs/COMO_USAR.md`](docs/COMO_USAR.md) | Instrucciones rápidas |
+| [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md) | Arquitectura técnica y contratos |
+| [`docs/COLOR_EN_TRAMA.md`](docs/COLOR_EN_TRAMA.md) | Álgebra de color en modo Trama |
+
+---
+
+## Estructura del repositorio
 
 ```
 .
 ├── visualizador.bat         Lanzador de doble clic para Windows (sin consola negra)
-├── sobre_este_plugins.txt   Documento fundacional (autoridad sobre el propósito)
-├── README.md                Esta puerta de entrada
-├── RETOMAR.md               Estado vivo y próximo paso
-├── presets/                 Presets de fábrica JSON (barras_blancas, barras_neon, etc.)
+├── LICENSE                  PolyForm Noncommercial License 1.0.0
+├── README.md                Esta documentación
+├── requirements.txt         Dependencias de Python
+├── presets/                 Presets de fábrica JSON
+├── assets/
+│   ├── logo/                Logo oficial (SVG, PNG, ICO)
+│   └── screenshots/         Capturas de pantalla oficiales
 ├── tools/
-│   ├── visualizador/        Paquete principal de la aplicación
-│   │   ├── __main__.py      Entrypoint canónico (python -m visualizador)
-│   │   ├── gui.py           Interfaz gráfica de escritorio (Tkinter)
-│   │   ├── cli.py           Línea de comandos
-│   │   ├── analisis.py      Motor de análisis espectral FFT y forma de onda
-│   │   ├── render.py        Motor de renderizado determinista
-│   │   ├── salida.py        Exportación WebM vía FFmpeg
-│   │   ├── proyecto.py      Persistencia de proyectos y presets JSON
-│   │   ├── parametros.py    Esquema unificado declarativo y álgebra de color
-│   │   └── estilos/         Implementaciones de estilos (barras, espejadas, onda)
-│   ├── generar_overlay.py   Generador original de la PoC (referencia histórica)
-│   └── medir_trama.py       Instrumento de medición de álgebra de Trama
-├── tests/
-│   ├── fixtures/            Audios de prueba deterministas (pista_prueba, pista_espectro)
-│   ├── test_analisis.py     Pruebas del análisis de audio
-│   ├── test_render.py       Pruebas del motor de dibujo y export
-│   ├── verificar_sincronia.py Validación estricta de alineación temporal
-│   ├── test_proyecto.py     Pruebas de proyectos, presets y compensar_fondo
-│   ├── test_gui.py          Pruebas automatizadas de la GUI Tkinter
-│   └── test_lanzador.py     Pruebas del lanzador .bat y consistencia de docs
-├── docs/                    Documentación técnica y guías de usuario
-├── .memory/                 Memoria técnica y bitácora del proyecto
-└── build/                   NO versionado — salidas de render
+│   └── visualizador/        Paquete principal de la aplicación
+│       ├── __main__.py      Entrypoint (python -m visualizador)
+│       ├── gui.py           Interfaz gráfica (Tkinter)
+│       ├── cli.py           Línea de comandos
+│       ├── analisis.py      Motor de análisis espectral FFT
+│       ├── render.py        Motor de renderizado determinista
+│       ├── salida.py        Exportación WebM vía FFmpeg
+│       ├── proyecto.py      Persistencia de proyectos y presets
+│       ├── parametros.py    Esquema declarativo de parámetros
+│       └── estilos/         Implementaciones de estilos
+├── tests/                   Suite de pruebas automatizadas
+└── docs/                    Documentación técnica y guías
 ```
 
 ---
 
-## Licencia y relación con Drift
+## Licencia
 
-Drift es **GPLv3**. Este proyecto no incluye ni redistribuye código de Drift: es una herramienta complementaria externa que produce metraje compatible para ser compuesto en la línea de tiempo.
+**PolyForm Noncommercial License 1.0.0**
+
+Visual Audio es software de uso libre para propósitos no comerciales. Podés usarlo, estudiarlo, modificarlo y compartirlo libremente.
+
+**Permitido:** Usar Visual Audio para producir tus videos musicales, visualizaciones y contenido creativo, incluso en canales con monetización publicitaria activa. El software es tu herramienta; los videos que producís son tuyos.
+
+**Prohibido:** Vender este software, cobrar por licencias, empaquetarlo dentro de un producto comercial de pago, o prestarlo como servicio de pago (SaaS).
+
+Consultá el archivo [`LICENSE`](LICENSE) para el texto legal completo.
+
+---
+
+## Créditos
+
+Creado por **Jonatan Córdoba**.
+
+Visual Audio es un proyecto independiente. No forma parte de [CutWire Studios](https://github.com/CutWire-Studios) ni del equipo de desarrollo de [Drift](https://github.com/CutWire-Studios/Drift). Es una herramienta complementaria externa que produce metraje compatible para ser compuesto en la línea de tiempo de Drift.
